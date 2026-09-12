@@ -121,6 +121,9 @@ export class GraphAgent {
             },
             body: JSON.stringify({
               model: this.model,
+              ...(this.model.startsWith("gpt-5.6")
+                ? { reasoning: { effort: "low" } }
+                : {}),
               store: false,
               max_output_tokens: 4000,
               max_tool_calls: 16,

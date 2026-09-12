@@ -22,14 +22,14 @@ const x402 = new X402GraphPayments(paymentCredential, paymentAddress);
 const graphAgent = new GraphAgent(
   secret,
   graphCredential,
-  config?.model ?? "gpt-4.1-mini",
+  config?.model ?? "gpt-5.6-terra",
   fetch,
   x402,
 );
 const tools = new LiveTools(
   secret,
   config?.owner ?? "0x0000000000000000000000000000000000000000",
-  config?.model ?? "gpt-4.1-mini",
+  config?.model ?? "gpt-5.6-terra",
   graphAgent,
   paymentAddress,
   paymentCredential,

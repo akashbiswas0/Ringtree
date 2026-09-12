@@ -6,7 +6,7 @@ export const ConfigSchema = z
   .object({
     owner: Address,
     salt: Hash,
-    model: z.string().default("gpt-4.1-mini"),
+    model: z.string().default("gpt-5.6-terra"),
     allowBroadcast: z.boolean().default(false),
     ringBackend: z.literal("cli").default("cli"),
     keyRingRootId: z.string().optional(),

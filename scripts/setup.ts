@@ -25,7 +25,7 @@ async function main() {
     save(join(dataDir, "config.json"), {
       owner,
       salt: hexlify(randomBytes(32)),
-      model: "gpt-4.1-mini",
+      model: "gpt-5.6-terra",
       allowBroadcast: false,
       ringBackend: "cli",
       ...(session.trustchain
