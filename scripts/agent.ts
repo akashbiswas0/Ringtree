@@ -4,18 +4,15 @@ import { Wallet, hexlify, randomBytes } from "ethers";
 import {
   domain,
   digest,
-  ROOT,
   grantTypes,
   grantMessage,
   callTypes,
   callMessage,
   type Grant,
-  type Call,
-  canonical,
 } from "../shared/protocol";
 import { read, save } from "./io";
-type Role = "orchestrator" | "researcher" | "risk" | "executor";
-const roles: Role[] = ["orchestrator", "researcher", "risk", "executor"];
+type Role = "orchestrator" | "researcher" | "executor";
+const roles: Role[] = ["orchestrator", "researcher", "executor"];
 const dir = resolve(process.env.RINGTREE_AGENT_DIR ?? ".ringtree/agents");
 const broker = process.env.RINGTREE_BROKER_URL ?? "http://127.0.0.1:4318";
 type Identity = { privateKey: string; hostPrivateKey: string };
@@ -32,12 +29,6 @@ type State = {
   salt: string;
   owner: string;
   grants: Array<{ grant: Grant; revoked: boolean }>;
-  results: Array<{
-    rootId: string;
-    tool: string;
-    subject: string;
-    result: unknown;
-  }>;
   graphMissions?: Array<{
     id: string;
     question: string;
@@ -94,7 +85,7 @@ async function main() {
     };
     save(join(dir, "manifest.json"), manifest);
     console.log(
-      "Created four separate agent identities. Registering their public manifest.",
+      "Created three separate agent identities. Registering their public manifest.",
     );
     await api("manifests", manifest);
     console.log(
@@ -110,7 +101,7 @@ async function main() {
   if (command === "start") {
     const role = process.argv[3] as Role;
     if (!roles.includes(role))
-      throw new Error("Specify orchestrator, researcher, risk, or executor.");
+      throw new Error("Specify orchestrator, researcher, or executor.");
     const roleDir = process.env.RINGTREE_ROLE_DIR ?? join(dir, role);
     const identity = read<Identity>(join(roleDir, "identity.json"));
     const wallet = new Wallet(identity.privateKey),
@@ -222,37 +213,6 @@ async function main() {
                 ),
               });
             }
-            // Deliberately hostile, signed requests exercise the real broker, not a UI simulation.
-            for (const [tool, input] of [
-              ["secret.read", {}],
-              ["chain.read", { url: "https://attacker.invalid" }],
-            ] as const) {
-              try {
-                await call(g, tool, input, s.salt);
-              } catch (e) {
-                console.log("Attack blocked:", (e as Error).message);
-              }
-            }
-            const escalated = {
-              ...g,
-              id: nonce(),
-              parentId: g.id,
-              issuer: wallet.address,
-              maxCalls: g.maxCalls + 1,
-              nonce: nonce(),
-            };
-            try {
-              await api("grants", {
-                grant: escalated,
-                signature: await wallet.signTypedData(
-                  domain(s.salt),
-                  grantTypes,
-                  grantMessage(escalated),
-                ),
-              });
-            } catch (e) {
-              console.log("Escalation blocked:", (e as Error).message);
-            }
           } else if (role === "researcher") {
             const mission = g.tools.includes("graph.answer")
               ? queuedGraphMission
@@ -276,9 +236,6 @@ async function main() {
               continue;
             }
             await new Promise((r) => setTimeout(r, 2000));
-            continue;
-          } else if (role === "risk") {
-            await new Promise((r) => setTimeout(r, 3000));
             continue;
           } else {
             if (!rewardMission) {
@@ -313,7 +270,7 @@ async function main() {
     }
   }
   console.log(
-    "Commands: init | register | start <orchestrator|researcher|risk|executor>",
+    "Commands: init | register | start <orchestrator|researcher|executor>",
   );
 }
 main().catch((e) => {

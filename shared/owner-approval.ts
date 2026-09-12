@@ -1,14 +1,12 @@
 import { TypedDataEncoder, verifyMessage, type TypedDataDomain, type TypedDataField } from "ethers";
 import { domain, canonical, hostTypes, grantTypes, decisionTypes, revokeTypes, ROOT } from "./protocol";
-import { joinTypes } from "./enrollment";
 
-const schemas = { ...hostTypes, ...grantTypes, ...decisionTypes, ...revokeTypes, ...joinTypes };
+const schemas = { ...hostTypes, ...grantTypes, ...decisionTypes, ...revokeTypes };
 const purposes: Record<string, string> = {
   HostEnrollment: "Change agent host admission. Enrollment stays active until revoked. A separate grant is required to use tools.",
   AgentGrant: "Authorize scoped agent tools and narrower delegation. API calls may incur provider charges. No API key export. No transaction signing authority.",
   ActionDecision: "Record a workflow decision for the exact transaction digest below. Moving funds still requires a separate transaction signature.",
   RevokeGrant: "Revoke this grant and block its descendants on their next request.",
-  RingLinkEnrollment: "Add a trusted broker as Key Ring KEY_READER. It can decrypt ring secrets. This is NOT a scoped agent capability. Membership remains until separately removed.",
 };
 const labels: Record<string, string> = {
   hostId: "Host address", label: "Host label", action: "Action",
@@ -16,8 +14,7 @@ const labels: Record<string, string> = {
   subject: "Agent address", tools: "Allowed tools", resource: "Resource",
   maxCalls: "Maximum calls (shared with descendants)", nonce: "One-time nonce",
   requestId: "Request ID", digest: "Exact transaction digest", decision: "Decision",
-  grantId: "Grant ID", memberPubkey: "Broker public key", name: "Broker name",
-  rootId: "Key Ring ID", applicationPath: "Key Ring application path",
+  grantId: "Grant ID",
 };
 
 // Serialize values without control characters, newlines, bidi, or Unicode lookalikes.

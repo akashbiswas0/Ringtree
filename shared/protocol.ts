@@ -3,7 +3,6 @@ import {
   getAddress,
   keccak256,
   toUtf8Bytes,
-  TypedDataEncoder,
   ZeroHash,
 } from "ethers";
 
@@ -11,9 +10,6 @@ export const CHAIN_ID = 84532;
 // Retained from the Flex signing demo agreed in this task.
 export const DERIVATION_PATH = "44'/60'/0'/0/0";
 export const TOOLS = [
-  "chain.read",
-  "ai.research",
-  "ai.risk",
   "tx.prepare",
   "graph.answer",
 ] as const;
@@ -23,9 +19,9 @@ export const Address = z
   .transform(getAddress);
 export const Hash = z.string().regex(/^0x[0-9a-fA-F]{64}$/);
 export const SignatureSchema = z.string().regex(/^0x[0-9a-fA-F]{130}$/);
-export const Tool = z.enum(TOOLS);
+const Tool = z.enum(TOOLS);
 const limit = z.number().int().min(1).max(100);
-export const GrantSchema = z
+const GrantSchema = z
   .object({
     id: Hash,
     parentId: Hash,
@@ -177,5 +173,3 @@ export function typedGrant(g: Grant, salt: string) {
     message: grantMessage(g),
   };
 }
-export const grantHash = (g: Grant, salt: string) =>
-  TypedDataEncoder.hash(domain(salt), grantTypes, grantMessage(g));

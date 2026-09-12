@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { Wallet, hexlify, randomBytes, Transaction } from "ethers";
+import { Wallet, hexlify, randomBytes } from "ethers";
 import { Store } from "../server/store";
 import { Authority } from "../server/authority";
 import { ownerApprovalText } from "../shared/owner-approval";
@@ -31,7 +31,7 @@ describe("Ledger-rooted capability enforcement", () => {
   async function call(g: Grant, w = child, overrides: Partial<Call> = {}) {
     const b = {
       grantId: g.id,
-      tool: "chain.read",
+      tool: "graph.answer",
       input: {},
       timestamp: now,
       nonce: id(),
@@ -53,7 +53,7 @@ describe("Ledger-rooted capability enforcement", () => {
     parentId: root.id,
     issuer: parent.address,
     subject: child.address,
-    tools: ["chain.read"],
+    tools: ["graph.answer"],
     maxCalls: 2,
     nonce: id(),
     ...patch,
@@ -79,7 +79,7 @@ describe("Ledger-rooted capability enforcement", () => {
       issuer: owner.address,
       subject: parent.address,
       hostId: host.address,
-      tools: ["chain.read", "ai.research", "tx.prepare"],
+      tools: ["graph.answer"],
       resource: "base-sepolia",
       maxCalls: 3,
       expiresAt: now + 1800,
@@ -134,7 +134,7 @@ describe("Ledger-rooted capability enforcement", () => {
     ).toBe(true);
   });
   it.each([
-    ["scope", { tools: ["ai.risk"] }],
+    ["scope", { tools: ["tx.prepare"] }],
     ["budget", { maxCalls: 4 }],
     ["expiry", { expiresAt: now + 2000 }],
   ])("rejects %s escalation", async (_name, patch) => {

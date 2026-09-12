@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: RingTree private ARM64 MVP - m7g.large with SSM-only access
+Description: RingTree isolated AWS agents and local-broker relay - SSM-only access
 Parameters:
   VpcId: { Type: AWS::EC2::VPC::Id }
   SubnetId: { Type: AWS::EC2::Subnet::Id }
@@ -90,7 +90,7 @@ Resources:
           unzip -q awscliv2.zip
           ./aws/install
           snap start amazon-ssm-agent || { snap install amazon-ssm-agent --classic; snap start amazon-ssm-agent; }
-          install -d -m 0700 -o 1000 -g 1000 /opt/ringtree/state/broker /opt/ringtree/state/keychain /opt/ringtree/state/agents /opt/ringtree/state/secrets
+          install -d -m 0700 -o 1000 -g 1000 /opt/ringtree/state/agents /opt/ringtree/state/relay
           install -d -m 0755 /opt/ringtree/app
 Outputs:
   InstanceId: { Value: !Ref Instance }

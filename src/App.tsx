@@ -10,9 +10,7 @@ import {
   Plug,
   ArrowUpRight,
   Check,
-  RefreshCw,
   Download,
-  SquareTerminal,
   Database,
 } from "lucide-react";
 import { hexlify, randomBytes, Transaction } from "ethers";
@@ -27,8 +25,6 @@ import {
   revokeTypes,
   type Grant,
 } from "../shared/protocol";
-import { JoinRequest, joinTypes, joinMessage } from "../shared/enrollment";
-import type { z } from "zod";
 import {
   BASE_SEPOLIA_USDC,
   GRAPH_REWARD_LABEL,
@@ -51,7 +47,6 @@ type Proposal = {
   kind?: "graph-agent-reward";
 };
 type State = {
-  runtime?: string;
   ownerApprovalVersion?: number;
   configured: boolean;
   owner?: string;
@@ -60,15 +55,11 @@ type State = {
   ringReady: boolean;
   graphConfigured: boolean;
   graphReady: boolean;
-  model?: string;
   allowBroadcast: boolean;
-  keyRingRootId?: string;
-  keyRingApplicationPath?: string;
   hosts: Array<{ hostId: string; label: string; active: boolean }>;
   manifests: Manifest[];
   grants: Array<{ grant: Grant; used: number; revoked: boolean }>;
   proposals: Proposal[];
-  results: Array<{ id: string; tool: string; result: unknown }>;
   graphMissions: Array<{
     id: string;
     question: string;
@@ -155,7 +146,6 @@ export default function App() {
   const [tab, setTab] = useState("Workspace");
   const [graphQuestion, setGraphQuestion] = useState("");
   const [graphSubmitting, setGraphSubmitting] = useState(false);
-  const [joinRequest, setJoinRequest] = useState<z.infer<typeof JoinRequest>>();
   const controller = useRef<LedgerController | null>(null);
   const mounted = useRef(true);
   useEffect(() => {
@@ -168,7 +158,7 @@ export default function App() {
       } catch {
         if (!aborted)
           setError(
-            "Broker unavailable. Start it with npm run broker, then retry.",
+            "Broker unavailable. Start it with npm run setup -- serve, then retry.",
           );
       }
     };
@@ -317,36 +307,7 @@ export default function App() {
       message: host,
     });
     await api("hosts", { host, signature });
-    setNotice(
-      "Agent host access revoked. This is separate from removing a Key Ring broker member.",
-    );
-  }
-  async function approveJoin() {
-    const salt = owner();
-    if (!joinRequest) return;
-    const rootId = state?.keyRingRootId,
-      applicationPath = state?.keyRingApplicationPath;
-    if (!rootId || !applicationPath)
-      throw new Error(
-        "Add your initialized Key Ring public metadata to the broker config before enrollment.",
-      );
-    const signature = await ledger().signPermission({
-      domain: domain(salt),
-      types: joinTypes,
-      primaryType: "RingLinkEnrollment",
-      message: { ...joinMessage(joinRequest), rootId, applicationPath },
-    });
-    download("ringlink-approval.json", {
-      request: joinRequest,
-      owner: address,
-      salt,
-      signature,
-      rootId,
-      applicationPath,
-    });
-    setNotice(
-      "Approval downloaded. Run npm run ringlink -- approve <file> on this laptop to add the remote member.",
-    );
+    setNotice("Agent host access revoked.");
   }
   async function submitGraphMission(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -413,7 +374,7 @@ export default function App() {
         </a>
         <div className="workspace-label">YOUR CONTROL PLANE</div>
         <nav aria-label="Dashboard">
-          {["Workspace", "Graph Agent", "Approvals", "RingLink", "Activity"].map((name) => (
+          {["Workspace", "Graph Agent", "Approvals", "Activity"].map((name) => (
             <button
               className={tab === name ? "nav active" : "nav"}
               onClick={() => setTab(name)}
@@ -425,8 +386,6 @@ export default function App() {
                 <Database aria-hidden />
               ) : name === "Approvals" ? (
                 <ShieldCheck aria-hidden />
-              ) : name === "RingLink" ? (
-                <Server aria-hidden />
               ) : (
                 <Activity aria-hidden />
               )}
@@ -478,9 +437,7 @@ export default function App() {
                   ? "Ask live blockchain data."
                 : tab === "Approvals"
                   ? "Your decision comes next."
-                  : tab === "RingLink"
-                    ? "Your Key Ring, beyond USB."
-                    : "A record of every boundary."}
+                  : "A record of every boundary."}
             </h1>
             <p className="subtitle">
               {tab === "Workspace"
@@ -489,20 +446,14 @@ export default function App() {
                   ? "Discover active Subgraphs, inspect their schemas, query live data, and return a verified answer."
                 : tab === "Approvals"
                   ? "Review the exact action before an agent gains permission to continue."
-                  : tab === "RingLink"
-                    ? "Enroll an isolated remote broker, then let the official Key Ring CLI use your encrypted credentials."
-                    : "Inspect real broker decisions, completed calls, and denied requests."}
+                  : "Inspect real broker decisions, completed calls, and denied requests."}
             </p>
           </div>
           <div className="network">
             <span className="status-dot" />
             {tab === "Graph Agent"
-              ? state?.runtime === "aws-ec2"
-                ? "AWS EC2 · The Graph"
-                : "Local · The Graph"
-              : state?.runtime === "aws-ec2"
-                ? "AWS EC2 · Base Sepolia"
-                : "Local · Base Sepolia"}
+              ? "AWS agent · Local Graph broker"
+              : "Local broker · Base Sepolia"}
           </div>
         </section>
         <div className="notice" role="status" aria-live="polite">
@@ -590,7 +541,7 @@ export default function App() {
                         </p>
                         <code>npm run agent -- init</code>
                         <p>
-                          Then start the four agent processes or Docker
+                          Then start the three agent processes or Docker
                           services.
                         </p>
                       </div>
@@ -647,12 +598,14 @@ export default function App() {
                                   disabled={busy || !address}
                                   onClick={() => perform(() => removeHost(m))}
                                 >
-                                  Disable AWS host
+                                  Disable agent host
                                 </button>
                               </>
                             )}
                           </div>
-                          {Object.entries(m.agents).map(([role, subject]) => {
+                          {Object.entries(m.agents)
+                            .filter(([role]) => role !== "risk")
+                            .map(([role, subject]) => {
                             const grants = state.grants.filter(
                               (g) => g.grant.subject === subject,
                             );
@@ -724,7 +677,7 @@ export default function App() {
                                 )}
                               </div>
                             );
-                          })}
+                            })}
                         </div>
                       ))
                     )}
@@ -781,29 +734,6 @@ export default function App() {
                     </section>
                   </aside>
                 </div>
-                {state.results.length > 0 && (
-                  <section className="panel">
-                    <div className="panel-head">
-                      <h2>Agent findings</h2>
-                      <Activity aria-hidden />
-                    </div>
-                    <p className="footnote">chain.read contains RPC observations. AI research and risk text are advisory—not an audit or authorization.</p>
-                    <div className="findings">
-                      {state.results.slice(-4).map((r) => (
-                        <article key={r.id}>
-                          <span className="badge">{r.tool}</span>
-                          <pre>
-                            {typeof r.result === "object" &&
-                            r.result &&
-                            "text" in r.result
-                              ? String(r.result.text)
-                              : readable(r.result)}
-                          </pre>
-                        </article>
-                      ))}
-                    </div>
-                  </section>
-                )}
               </>
             )}
             {tab === "Graph Agent" && (
@@ -1133,106 +1063,6 @@ export default function App() {
                   })
                 )}
               </section>
-            )}
-            {tab === "RingLink" && (
-              <>
-                <div className="columns">
-                  <section className="panel">
-                    <div className="panel-head">
-                      <h2>Remote broker enrollment</h2>
-                      <Server aria-hidden />
-                    </div>
-                    <p>
-                      On the VPS, run <code>npm run ringlink -- request</code>.
-                      Transfer the public request to this laptop and import it
-                      below.
-                    </p>
-                    <label className="file-label" htmlFor="join-file">
-                      Public enrollment request (JSON)
-                    </label>
-                    <input
-                      id="join-file"
-                      type="file"
-                      accept=".json,application/json"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file)
-                          void perform(async () => {
-                            if (file.size > 16000)
-                              throw new Error("Enrollment file is too large.");
-                            setJoinRequest(
-                              JoinRequest.parse(JSON.parse(await file.text())),
-                            );
-                          });
-                      }}
-                    />
-                    {joinRequest && (
-                      <>
-                        <dl>
-                          <dt>Broker</dt>
-                          <dd>{joinRequest.name}</dd>
-                          <dt>Member public key</dt>
-                          <dd className="mono">{joinRequest.memberPubkey}</dd>
-                          <dt>Expires</dt>
-                          <dd>
-                            {new Date(
-                              joinRequest.expiresAt * 1000,
-                            ).toLocaleString()}
-                          </dd>
-                        </dl>
-                        <button
-                          disabled={busy || !address}
-                          onClick={() => perform(approveJoin)}
-                        >
-                          <Download size={16} aria-hidden />
-                          Sign enrollment and download
-                        </button>
-                      </>
-                    )}
-                    <p className="footnote">
-                      After approval, the laptop controller adds a KEY_READER
-                      member. The VPS imports it into an isolated wallet-cli
-                      profile and decrypts with wallet-cli ring. Agents are
-                      never Key Ring members.
-                    </p>
-                  </section>
-                  <section className="panel">
-                    <h2>Official CLI credential path</h2>
-                    <ol className="workflow">
-                      <li>Owner initializes Key Ring on Ledger</li>
-                      <li>CLI encrypts the OpenAI API key</li>
-                      <li>Remote broker joins the trustchain</li>
-                      <li>CLI decrypts inside the broker process</li>
-                      <li>Broker calls OpenAI and returns text</li>
-                    </ol>
-                    <p className="footnote">
-                      Same-ring membership is a broad cryptographic trust
-                      boundary. Enroll only broker hosts you administer.
-                      Removing membership requires Key Ring rotation and
-                      credential rotation where exposure is suspected.
-                    </p>
-                  </section>
-                </div>
-                <section className="panel">
-                  <h2>Local setup</h2>
-                  <div className="command">
-                    <SquareTerminal aria-hidden />
-                    <code>npm run setup -- secret</code>
-                  </div>
-                  <p>
-                    Enter your API key privately in the terminal. The value is
-                    piped directly to wallet-cli ring encrypt.
-                  </p>
-                  <div className="command">
-                    <SquareTerminal aria-hidden />
-                    <code>npm run setup -- serve</code>
-                  </div>
-                  <p>
-                    Unlock the broker for this session without putting the
-                    password in shell history.
-                  </p>
-                </section>
-              </>
             )}
             {tab === "Activity" && (
               <section className="panel">

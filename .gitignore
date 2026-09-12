@@ -7,6 +7,4 @@ build/
 *.tsbuildinfo
 .DS_Store
 coverage/
-*.md
-/doc/
-/docs/
+/brand.md

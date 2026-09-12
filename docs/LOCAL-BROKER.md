@@ -1,52 +1,46 @@
 # Local broker with AWS agents
 
-Migration status: implementation prepared; live cutover requires verification of
-the current local broker and a broker-state snapshot. The AWS broker remains the
-active production configuration until `deploy-relay` is explicitly run.
+This is the active RingTree architecture. The trusted broker and official `wallet-cli ring` run locally. AWS runs only the orchestrator, Graph Agent, executor, and an in-memory relay.
 
-The laptop runs the broker and official wallet-cli. AWS runs the existing Graph
-Agent, orchestrator and executor plus a credential-free HTTP relay. Graph/AI
-provider calls and x402 signing execute locally. The relay holds requests only
-in memory, exposes no owner routes and requires a separate random connector token.
-AWS credentials authenticate the SSM tunnel; agent calls retain their existing
-signed grants, host signature, expiry and replay checks.
+## Start the system
 
-## Cutover checklist
+1. Start the local broker:
 
-1. Pause AWS agents and snapshot the AWS broker SQLite database. Preserve its
-   signatures, nonce history, mission/reward history and salt when transferring
-   the snapshot into a dedicated local data directory. Back up the existing local
-   database first; do not merge grants or reset nonce tables.
-2. Confirm the local encrypted OpenAI, Graph and payment files match the intended
-   wallet and use the local CLI profile. No VPS member/private credential is needed.
-3. Build with `npm run build`. Stop the old local broker and run
-   `npm run setup -- serve`, entering the existing local Key Ring password in its
-   hidden terminal prompt. Verify `ringReady`, `graphReady`, and `paymentReady`.
-4. Run `npm run aws -- deploy-relay`. This builds and deploys the relay and agents,
-   with no broker secret/keychain mounts and no provider egress. Check its SSM
-   result before proceeding. The old AWS state files are retained for rollback.
-5. Run `npm run aws -- relay-tunnel` in one terminal and `npm run connect:aws`
-   in another. During this migration the local dashboard is
-   http://localhost:4321; after retiring the old local process it can return to
-   the default port 4318.
-6. Sign a fresh root grant locally, submit one Graph mission, verify sources and
-   x402 receipt, and review the reward separately on Ledger.
-7. Disconnect the connector and verify agent requests stop; reconnect and verify
-   recovery. A lost in-flight job is not replayed automatically because a payment
-   may already have settled. Review any running mission before retrying.
+   ```sh
+   RINGTREE_PORT=4321 npm run setup -- serve
+   ```
 
-Do not run the legacy `aws upload` command after cutover: it deploys the VPS
-broker. Use `deploy-relay` for this architecture. Legacy RingLink scripts are
-retained only for rollback during migration and are not part of local setup.
+2. Start the SSM tunnel in another terminal:
 
-## Cleanup after verification
+   ```sh
+   npm run aws -- relay-tunnel
+   ```
 
-Retiring the AWS broker does not remove its existing Key Ring membership or
-erase old ciphertext/keychain backups. Those are a separate operator action:
-removing a member can rotate the ring and require re-encrypting credentials.
-Until cleanup is verified, do not claim that the laptop is the only machine
-capable of decrypting the old ciphertext.
+3. Start the connector in a third terminal:
 
-The laptop must be awake, connected, and running the broker and connector.
-This architecture demonstrates scoped agent access to CLI-protected secrets;
-it does not enroll AWS into Key Ring.
+   ```sh
+   npm run connect:aws
+   ```
+
+4. Open `http://localhost:4321`, connect Ledger Flex, and sign a fresh 30-minute root grant.
+
+5. Submit a Graph mission. Verify a live Subgraph answer, x402 status, and the separate `0.01 USDC` reward approval.
+
+## Trust boundary
+
+- AWS agents are on an internal Docker network and can call only the relay.
+- The relay accepts `state`, `manifests`, `grants`, and `call`; owner and transaction routes are blocked.
+- The connector authenticates with a random local token and forwards requests over an AWS SSM loopback tunnel.
+- Every forwarded agent action still needs valid agent and host signatures and passes local scope, expiry, quota, nonce, and revocation checks.
+- The relay has no provider keys, Key Ring files, wallet password, broker database, or Ledger access.
+
+If the broker, tunnel, or connector stops, agents fail closed. In-flight payment work is not automatically replayed because a payment may already have settled.
+
+## Deployment
+
+```sh
+npm run aws -- deploy-relay
+npm run aws -- result COMMAND_ID
+```
+
+The deployed image intentionally excludes `wallet-cli`, Linux keychain services, broker storage, and provider credentials. The former AWS-broker files are not part of the active application.

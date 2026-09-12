@@ -1,9 +1,12 @@
 // Run through the private AWS SSM tunnel. Only agent API routes are forwarded.
 import { readFileSync } from "node:fs";
-const relay = "http://127.0.0.1:4320";
-const token = readFileSync(".ringtree/relay-token", "utf8").trim();
+const relay = process.env.RINGTREE_RELAY_URL ?? "http://127.0.0.1:4320";
+const token = readFileSync(
+  process.env.RINGTREE_RELAY_TOKEN_FILE ?? ".ringtree/relay-token",
+  "utf8",
+).trim();
 const authorization = `Bearer ${token}`;
-const local = "http://127.0.0.1:4321";
+const local = process.env.RINGTREE_LOCAL_BROKER_URL ?? "http://127.0.0.1:4321";
 const routes = new Set(["state", "manifests", "grants", "call"]);
 let relayUnavailable = false;
 async function worker() {

@@ -41,7 +41,6 @@ async function fixture(allowBroadcast = false) {
       salt,
       model: "test-fixture",
       allowBroadcast,
-      ringBackend: "cli",
     },
     {
       prepare: async () => raw,
@@ -95,7 +94,7 @@ async function fixture(allowBroadcast = false) {
     issuer: owner.address,
     subject: agent.address,
     hostId: host.address,
-    tools: ["chain.read", "tx.prepare", "graph.answer"],
+    tools: ["tx.prepare", "graph.answer"],
     resource: "base-sepolia",
     maxCalls: 10,
     expiresAt: Math.floor(Date.now() / 1000) + 1000,
@@ -147,6 +146,29 @@ async function fixture(allowBroadcast = false) {
     grant,
     calls: () => calls,
   };
+}
+type Fixture = Awaited<ReturnType<typeof fixture>>;
+async function queueMission(f: Fixture) {
+  const queued = await f.post("graph/missions", {
+    question: "Compare recent live USDC activity.",
+  });
+  return queued.body.mission;
+}
+async function rewardProposal(f: Fixture) {
+  const mission = await queueMission(f);
+  await f.post(
+    "call",
+    await f.call("graph.answer", {
+      missionId: mission.id,
+      question: mission.question,
+    }),
+  );
+  return (
+    await f.post(
+      "call",
+      await f.call("tx.prepare", { missionId: mission.id }),
+    )
+  ).body.proposal;
 }
 describe("HTTP enforcement and high-risk transaction lifecycle", () => {
   it("queues a natural-language Graph mission and completes it through a signed capability call", async () => {
@@ -212,27 +234,30 @@ describe("HTTP enforcement and high-risk transaction lifecycle", () => {
     expect((await f.post("call", await f.call("secret.read"))).body.error).toBe(
       "TOOL_DENIED",
     );
-    expect(
-      (
-        await f.post(
-          "call",
-          await f.call("chain.read", { url: "https://attacker.invalid" }),
-        )
-      ).body.error,
-    ).toBe("INVALID_INPUT");
+    expect((await f.post("call", await f.call("ai.research"))).body.error).toBe(
+      "TOOL_DENIED",
+    );
+    expect((await f.post("call", await f.call("graph.answer", {
+      missionId: id(),
+      question: "A valid-length question",
+      url: "https://attacker.invalid",
+    }))).body.error).toBe("INVALID_INPUT");
     expect(f.calls()).toBe(0);
   });
   it("allows one concurrent request and rejects its replay", async () => {
     const f = await fixture();
-    const c = await f.call("chain.read");
+    const mission = await queueMission(f);
+    const c = await f.call("graph.answer", {
+      missionId: mission.id,
+      question: mission.question,
+    });
     const replies = await Promise.all([f.post("call", c), f.post("call", c)]);
     expect(replies.map((r) => r.status).sort()).toEqual([200, 400]);
     expect(f.calls()).toBe(1);
   });
   it("queues, approves, validates Ledger-owner transaction and rejects replay", async () => {
     const f = await fixture();
-    const proposal = (await f.post("call", await f.call("tx.prepare"))).body
-      .proposal;
+    const proposal = await rewardProposal(f);
     expect(proposal.status).toBe("pending");
     const signed = await f.owner.signTransaction(Transaction.from(f.raw));
     expect(
@@ -274,8 +299,7 @@ describe("HTTP enforcement and high-risk transaction lifecycle", () => {
   });
   it("rejects forged human approval", async () => {
     const f = await fixture();
-    const proposal = (await f.post("call", await f.call("tx.prepare"))).body
-      .proposal;
+    const proposal = await rewardProposal(f);
     const decision = {
       requestId: proposal.id,
       digest: proposal.digest,
@@ -294,8 +318,7 @@ describe("HTTP enforcement and high-risk transaction lifecycle", () => {
   });
   it("verifies, signs and broadcasts through one submit request", async () => {
     const f = await fixture(true);
-    const proposal = (await f.post("call", await f.call("tx.prepare"))).body
-      .proposal;
+    const proposal = await rewardProposal(f);
     const signed = await f.owner.signTransaction(Transaction.from(f.raw));
     const response = await f.post("submit", {
       requestId: proposal.id,

@@ -10,13 +10,9 @@
     "broker": "tsx server/main.ts",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
-    "ringlink": "tsx scripts/ringlink.ts",
     "setup": "tsx scripts/setup.ts",
     "agent": "tsx scripts/agent.ts",
     "aws": "tsx scripts/aws.ts",
-    "remote:prepare": "tsx scripts/remote-prepare.ts",
-    "remote:check": "tsx scripts/remote-check.ts",
-    "requeue:executor": "tsx scripts/requeue-executor.ts",
     "graph:codegen": "yarn --cwd subgraph codegen",
     "graph:build": "yarn --cwd subgraph build",
     "graph:test": "yarn --cwd subgraph test",
@@ -24,22 +20,16 @@
     "start": "tsx server/main.ts"
   },
   "dependencies": {
-    "@bunli/utils": "0.6.0",
-    "@graphprotocol/client-x402": "^1.0.0",
     "@ledgerhq/context-module": "2.5.0",
     "@ledgerhq/device-management-kit": "1.9.0",
     "@ledgerhq/device-signer-kit-ethereum": "1.18.0",
     "@ledgerhq/device-transport-kit-web-hid": "1.2.4",
-    "@ledgerhq/hw-ledger-key-ring-protocol": "0.10.7",
-    "@ledgerhq/ledger-key-ring-protocol": "0.15.2",
-    "@napi-rs/keyring": "^1.2.0",
     "@x402/core": "^2.25.0",
     "@x402/evm": "^2.25.0",
     "@x402/fetch": "^2.25.0",
     "ethers": "6.17.0",
     "express": "^5.1.0",
     "express-rate-limit": "^8.1.0",
-    "graphql": "^16.11.0",
     "helmet": "^8.1.0",
     "lucide-react": "^0.577.0",
     "react": "19.2.8",
@@ -72,5 +62,22 @@
   },
   "engines": {
     "node": ">=22.13"
+  },
+  "knip": {
+    "entry": [
+      "src/main.tsx",
+      "server/main.ts",
+      "scripts/*.ts",
+      "tests/**/*.test.ts"
+    ],
+    "project": [
+      "src/**/*.{ts,tsx}",
+      "server/**/*.ts",
+      "shared/**/*.ts",
+      "scripts/**/*.ts",
+      "tests/**/*.ts"
+    ],
+    "ignore": ["subgraph/**"],
+    "ignoreBinaries": ["wallet-cli", "codegen", "deploy"]
   }
 }

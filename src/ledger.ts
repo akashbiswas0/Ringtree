@@ -20,7 +20,7 @@ import {
   type TypedData,
 } from "@ledgerhq/device-signer-kit-ethereum";
 import { firstValueFrom, filter, map, tap, timeout, take } from "rxjs";
-import { Signature, Transaction, getBytes, verifyMessage } from "ethers";
+import { Signature, getBytes, verifyMessage } from "ethers";
 import { ownerApprovalText } from "../shared/owner-approval";
 import { DERIVATION_PATH } from "../shared/protocol";
 import { graphRewardDetails } from "../shared/payment";

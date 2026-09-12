@@ -2,15 +2,12 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { z } from "zod";
 import { Address, Hash } from "../shared/protocol";
-export const ConfigSchema = z
+const ConfigSchema = z
   .object({
     owner: Address,
     salt: Hash,
     model: z.string().default("gpt-5.6-terra"),
     allowBroadcast: z.boolean().default(false),
-    ringBackend: z.literal("cli").default("cli"),
-    keyRingRootId: z.string().optional(),
-    keyRingApplicationPath: z.string().optional(),
   })
   .strict();
 export type Config = z.infer<typeof ConfigSchema>;

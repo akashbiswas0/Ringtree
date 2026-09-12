@@ -4,8 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Store } from "../server/store";
 import { digest } from "../shared/protocol";
-import { seal, unseal } from "../scripts/lkrp";
-describe("durability and encrypted member envelopes", () => {
+describe("broker durability", () => {
   it("persists replay prevention across broker restart", () => {
     const path = join(
       mkdtempSync(join(tmpdir(), "ringtree-test-")),
@@ -29,13 +28,4 @@ describe("durability and encrypted member envelopes", () => {
     const { seq, hash, ...content } = e[0];
     expect(digest(content)).toBe(hash);
   });
-  it("encrypts and authenticates member envelopes with the CLI-compatible PBKDF2 format", async () => {
-    const password = "unit-test-only-not-a-wallet-password";
-    const e = await seal(password, "unit-test fixture");
-    expect(e.cipher).not.toContain("fixture");
-    expect((await unseal(password, e.salt, e.cipher)).toString()).toBe(
-      "unit-test fixture",
-    );
-    await expect(unseal("wrong", e.salt, e.cipher)).rejects.toThrow();
-  }, 10000);
 });

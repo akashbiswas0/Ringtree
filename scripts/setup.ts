@@ -1,8 +1,6 @@
 import { join } from "node:path";
-import { existsSync, writeFileSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { spawn } from "node:child_process";
-import { homedir } from "node:os";
-import { parse } from "yaml";
 import { Wallet, getAddress, hexlify, randomBytes } from "ethers";
 import { dataDir } from "../server/config";
 import { ask, hidden, save } from "./io";
@@ -14,26 +12,11 @@ async function main() {
     const owner = getAddress(
       await ask("Ledger Ethereum address (verify on Flex first): "),
     );
-    const sessionPath = join(
-      process.env.XDG_STATE_HOME ?? join(homedir(), ".local", "state"),
-      "ledger-wallet-cli",
-      "session.yaml",
-    );
-    const session = existsSync(sessionPath)
-      ? parse(readFileSync(sessionPath, "utf8"))
-      : {};
     save(join(dataDir, "config.json"), {
       owner,
       salt: hexlify(randomBytes(32)),
       model: "gpt-5.6-terra",
       allowBroadcast: false,
-      ringBackend: "cli",
-      ...(session.trustchain
-        ? {
-            keyRingRootId: session.trustchain.rootId,
-            keyRingApplicationPath: session.trustchain.applicationPath,
-          }
-        : {}),
     });
     console.log(
       "Owner pinned. Restart the broker, then run npm run setup -- secret when your Key Ring and OpenAI key are ready.",
@@ -160,27 +143,12 @@ async function main() {
       encryptedSecret: existsSync(join(dataDir, "openai.enc")),
       encryptedGraphSecret: existsSync(join(dataDir, "graph.enc")),
       encryptedPaymentWallet: existsSync(join(dataDir, "payment.enc")),
-      remoteMember: existsSync(join(dataDir, "member.enc.json")),
     });
     return;
   }
-  if (command === "remote-password") {
-    const password = await hidden(
-      "Remote broker password for Docker (hidden): ",
-    );
-    if (password.length < 12) throw new Error("Use at least 12 characters.");
-    const path = join(process.cwd(), ".ringtree", "remote-password");
-    mkdirSync(join(process.cwd(), ".ringtree"), {
-      recursive: true,
-      mode: 0o700,
-    });
-    writeFileSync(path, password, { mode: 0o600, flag: "wx" });
-    console.log(
-      "Saved the operator-provided Docker secret. Only the broker service mounts it.",
-    );
-    return;
-  }
-  console.log("Commands: config | check | secret | graph-secret | payment-wallet | serve | status | remote-password");
+  console.log(
+    "Commands: config | check | secret | graph-secret | payment-wallet | serve | status",
+  );
 }
 main().catch((e) => {
   console.error(e instanceof Error ? e.message : "Setup failed");

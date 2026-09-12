@@ -58,7 +58,7 @@ type GraphMission = {
   rewardProposalId?: string;
   paymentHash?: string;
 };
-export const ManifestSchema = z
+const ManifestSchema = z
   .object({
     hostId: Address,
     label: z.string().min(1).max(48),
@@ -66,7 +66,7 @@ export const ManifestSchema = z
       .object({
         orchestrator: Address,
         researcher: Address,
-        risk: Address,
+        risk: Address.optional(),
         executor: Address,
       })
       .strict(),
@@ -151,19 +151,18 @@ export function createApp(
       return;
     }
     const origin = req.get("Origin");
-    if (
-      origin &&
-      ![
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:4319",
-        "http://127.0.0.1:4319",
-        "http://localhost:4318",
-        "http://127.0.0.1:4318",
-      ].includes(origin)
-    ) {
-      res.status(403).json({ error: "ORIGIN_DENIED" });
-      return;
+    if (origin) {
+      try {
+        const parsed = new URL(origin);
+        if (
+          parsed.protocol !== "http:" ||
+          !["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname)
+        )
+          throw new Error("foreign origin");
+      } catch {
+        res.status(403).json({ error: "ORIGIN_DENIED" });
+        return;
+      }
     }
     next();
   });
@@ -177,20 +176,16 @@ export function createApp(
     res.json({
       configured: !!config,
       ownerApprovalVersion: 2,
-      runtime: process.env.RINGTREE_RUNTIME ?? "local",
       owner: config?.owner,
       salt: config?.salt,
       model: config?.model,
       ringConfigured: secret.ready(),
       ringReady: secret.unlocked(),
-      ringBackend: config?.ringBackend,
       graphConfigured: tools.graphStatus?.().configured ?? false,
       graphReady: tools.graphStatus?.().ready ?? false,
       paymentConfigured: tools.paymentStatus?.().configured ?? false,
       paymentReady: tools.paymentStatus?.().ready ?? false,
       paymentAddress: tools.paymentStatus?.().address,
-      keyRingRootId: config?.keyRingRootId,
-      keyRingApplicationPath: config?.keyRingApplicationPath,
       allowBroadcast: config?.allowBroadcast ?? false,
       hosts: store.all<HostRecord>("host"),
       manifests: store.all("manifest"),
@@ -200,10 +195,8 @@ export function createApp(
       proposals: store
         .all<Proposal>("proposal")
         .map(({ signedRaw, ...r }) => r),
-      results: store.all("result"),
       graphMissions: store.all<GraphMission>("graph-mission"),
       events: store.events(),
-      root: ROOT,
     }),
   );
   app.get("/api/protocol", (_req, res) =>
