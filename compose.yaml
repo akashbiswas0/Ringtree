@@ -1,0 +1,57 @@
+services:
+  broker:
+    build: .
+    image: ringtree:local
+    ports: ["127.0.0.1:4318:4318"]
+    volumes:
+      - broker-data:/data
+      - broker-keychain:/home/node/.local
+    networks: [agent-net, egress]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    command: ["dbus-run-session", "--", "sh", "deploy/broker-entry.sh"]
+    secrets: [ring_password]
+  orchestrator: &agent
+    image: ringtree:local
+    user: node
+    command: ["npm", "run", "agent", "--", "start", "orchestrator"]
+    environment:
+      RINGTREE_BROKER_URL: http://broker:4318
+      RINGTREE_ROLE_DIR: /identity
+      RINGTREE_MANIFEST: /manifest.json
+    volumes:
+      - ./.ringtree/agents/orchestrator:/identity
+      - ./.ringtree/agents/manifest.json:/manifest.json:ro
+    networks: [agent-net]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=64m,mode=1777"]
+    depends_on: [broker]
+  researcher:
+    <<: *agent
+    command: ["npm", "run", "agent", "--", "start", "researcher"]
+    volumes:
+      - ./.ringtree/agents/researcher:/identity
+      - ./.ringtree/agents/manifest.json:/manifest.json:ro
+  risk:
+    <<: *agent
+    command: ["npm", "run", "agent", "--", "start", "risk"]
+    volumes:
+      - ./.ringtree/agents/risk:/identity
+      - ./.ringtree/agents/manifest.json:/manifest.json:ro
+  executor:
+    <<: *agent
+    command: ["npm", "run", "agent", "--", "start", "executor"]
+    volumes:
+      - ./.ringtree/agents/executor:/identity
+      - ./.ringtree/agents/manifest.json:/manifest.json:ro
+networks:
+  agent-net: { internal: true }
+  egress: {}
+volumes:
+  broker-data: {}
+  broker-keychain: {}
+secrets:
+  ring_password:
+    file: ./.ringtree/remote-password
