@@ -1,0 +1,26 @@
+type Transfer @entity(immutable: true) {
+  id: Bytes!
+  from: Bytes!
+  to: Bytes!
+  amount: BigInt!
+  blockNumber: BigInt!
+  blockTimestamp: BigInt!
+  transactionHash: Bytes!
+}
+
+type Account @entity(immutable: false) {
+  id: Bytes!
+  sentAmount: BigInt!
+  receivedAmount: BigInt!
+  transferCount: BigInt!
+  lastActiveBlock: BigInt!
+  lastActiveTimestamp: BigInt!
+}
+
+type USDCActivity @entity(immutable: false) {
+  id: ID!
+  totalTransferCount: BigInt!
+  totalVolume: BigInt!
+  lastBlock: BigInt!
+  lastTimestamp: BigInt!
+}
