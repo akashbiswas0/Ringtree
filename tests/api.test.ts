@@ -229,6 +229,29 @@ describe("HTTP enforcement and high-risk transaction lifecycle", () => {
     expect(response.body.ringConfigured).toBe(false);
     expect(response.body.ringReady).toBe(false);
   });
+  it("gives agents only the minimum scheduling state", async () => {
+    const f = await fixture();
+    f.store.event("PRIVATE_UI_EVENT", { detail: "dashboard-only" });
+    f.store.put("proposal", id(), {
+      id: id(),
+      status: "pending",
+      raw: "unsigned-transaction-payload",
+      digest: id(),
+      expiresAt: Math.floor(Date.now() / 1000) + 100,
+    });
+    const response = await request(f.app)
+      .get("/api/agent-state")
+      .set("Host", "localhost:4318");
+    expect(response.status).toBe(200);
+    expect(response.body.grants).toHaveLength(1);
+    expect(response.body).not.toHaveProperty("owner");
+    expect(response.body).not.toHaveProperty("events");
+    expect(response.body).not.toHaveProperty("paymentAddress");
+    expect(JSON.stringify(response.body)).not.toContain(
+      "unsigned-transaction-payload",
+    );
+    expect(JSON.stringify(response.body)).not.toContain("dashboard-only");
+  });
   it("denies secret reads, arbitrary endpoints, and unknown fields before calling provider", async () => {
     const f = await fixture();
     expect((await f.post("call", await f.call("secret.read"))).body.error).toBe(

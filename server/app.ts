@@ -146,7 +146,7 @@ export function createApp(
   // The operator dashboard is served locally or over an SSH tunnel. Reject DNS rebinding/CSRF.
   app.use((req, res, next) => {
     const host = req.hostname;
-    if (!["localhost", "127.0.0.1", "[::1]", "broker"].includes(host)) {
+    if (!["localhost", "127.0.0.1", "[::1]"].includes(host)) {
       res.status(403).json({ error: "LOCAL_TUNNEL_REQUIRED" });
       return;
     }
@@ -172,6 +172,15 @@ export function createApp(
     config?.salt ?? ROOT,
   );
   auth.reconcileDuplicateRoots();
+  const grants = () =>
+    store
+      .all<GrantRecord>("grant")
+      .map((record) => ({ ...record, used: store.used(record.grant.id) }));
+  const proposals = () =>
+    store
+      .all<Proposal>("proposal")
+      .map(({ signedRaw, ...proposal }) => proposal);
+  const graphMissions = () => store.all<GraphMission>("graph-mission");
   app.get("/api/state", (_req, res) =>
     res.json({
       configured: !!config,
@@ -189,14 +198,37 @@ export function createApp(
       allowBroadcast: config?.allowBroadcast ?? false,
       hosts: store.all<HostRecord>("host"),
       manifests: store.all("manifest"),
-      grants: store
-        .all<GrantRecord>("grant")
-        .map((r) => ({ ...r, used: store.used(r.grant.id) })),
-      proposals: store
-        .all<Proposal>("proposal")
-        .map(({ signedRaw, ...r }) => r),
-      graphMissions: store.all<GraphMission>("graph-mission"),
+      grants: grants(),
+      proposals: proposals(),
+      graphMissions: graphMissions(),
       events: store.events(),
+    }),
+  );
+  // The AWS relay exposes only this state route. Agents receive the
+  // scheduling data required to exercise signed capabilities—not owner UI,
+  // payment, proposal payload, provider, or audit-log details.
+  app.get("/api/agent-state", (_req, res) =>
+    res.json({
+      configured: !!config,
+      salt: config?.salt,
+      graphReady: tools.graphStatus?.().ready ?? false,
+      grants: store.all<GrantRecord>("grant").map(({ grant, revoked }) => ({
+        grant,
+        revoked,
+      })),
+      graphMissions: graphMissions().map(
+        ({ id, question, status, rewardProposalId }) => ({
+          id,
+          question,
+          status,
+          rewardProposalId,
+        }),
+      ),
+      proposals: proposals().map(({ kind, status, expiresAt }) => ({
+        kind,
+        status,
+        expiresAt,
+      })),
     }),
   );
   app.get("/api/protocol", (_req, res) =>

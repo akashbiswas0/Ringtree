@@ -7,8 +7,8 @@ const token = readFileSync(
 ).trim();
 const authorization = `Bearer ${token}`;
 const local = process.env.RINGTREE_LOCAL_BROKER_URL ?? "http://127.0.0.1:4321";
-const routes = new Set(["state", "manifests", "grants", "call"]);
-let relayUnavailable = false;
+const routes = new Set(["agent-state", "manifests", "grants", "call"]);
+let relayUnavailable = true;
 async function worker() {
   while (true) {
     try {
@@ -16,14 +16,14 @@ async function worker() {
         headers: { Authorization: authorization },
         signal: AbortSignal.timeout(30000),
       });
-      if (response.status === 204) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        continue;
-      }
       if (!response.ok) throw Error("RELAY_UNAVAILABLE");
       if (relayUnavailable) {
         relayUnavailable = false;
         console.log("AWS relay connected to the local broker.");
+      }
+      if (response.status === 204) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        continue;
       }
       const job = await response.json() as { id: string; path: string; method: string; body?: unknown };
       if (!routes.has(job.path) || !["GET", "POST"].includes(job.method))

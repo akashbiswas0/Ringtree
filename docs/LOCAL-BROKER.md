@@ -10,6 +10,8 @@ This is the active RingTree architecture. The trusted broker and official `walle
    RINGTREE_PORT=4321 npm run setup -- serve
    ```
 
+   Startup performs a non-sensitive `wallet-cli ring` round trip before the broker reports ready. A wrong password or unavailable OS keychain fails before agents can connect.
+
 2. Start the SSM tunnel in another terminal:
 
    ```sh
@@ -32,6 +34,7 @@ This is the active RingTree architecture. The trusted broker and official `walle
 - The relay accepts `state`, `manifests`, `grants`, and `call`; owner and transaction routes are blocked.
 - The connector authenticates with a random local token and forwards requests over an AWS SSM loopback tunnel.
 - Every forwarded agent action still needs valid agent and host signatures and passes local scope, expiry, quota, nonce, and revocation checks.
+- The AWS network exposes only the minimal `agent-state` endpoint. Owner details, transaction payloads, payment configuration, and audit events remain dashboard-only.
 - The relay has no provider keys, Key Ring files, wallet password, broker database, or Ledger access.
 
 If the broker, tunnel, or connector stops, agents fail closed. In-flight payment work is not automatically replayed because a payment may already have settled.

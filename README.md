@@ -9,6 +9,7 @@ RingTree is a single-owner, Ledger-rooted control plane for agents running on an
 - Three isolated AWS identities: orchestrator, Graph Agent, and executor.
 - Attenuating child grants, host and agent signatures, expiry, replay protection, shared ancestor quotas, and cascading revocation.
 - A credential-free AWS relay reachable only through an authenticated SSM tunnel.
+- A minimal AWS agent-state response that omits owner UI, payment payloads, provider details, and audit history.
 - A Graph Agent using `gpt-5.6-terra`, the live RingTree Base Sepolia USDC Subgraph, and The Graph Subgraph MCP.
 - A separate Key Ring-protected payment wallet that makes a capped Base Sepolia x402 query.
 - One mission-linked `0.01 USDC` reward proposed only after a successful Graph mission and signed separately on Ledger.
@@ -47,7 +48,7 @@ npm run setup -- payment-wallet
 RINGTREE_PORT=4321 npm run setup -- serve
 ```
 
-Use the existing Key Ring password; do not reinitialize a working ring. Setup reads secrets through hidden terminal prompts and refuses to overwrite existing ciphertext.
+Use the existing Key Ring password; do not reinitialize a working ring. Setup reads secrets through hidden terminal prompts, verifies a public encrypt/decrypt probe before listening, and refuses to overwrite existing ciphertext. The password is held only in broker process memory—not its long-lived environment—and is passed only to short-lived `wallet-cli` subprocesses as required by the CLI.
 
 The dashboard is served by the broker at `http://localhost:4321`. Connect Flex, authorize the registered agent host, and sign a 30-minute root grant. Submit missions from the **Graph Agent** tab. A reward appears in **Approvals** only after a mission completes.
 
@@ -78,10 +79,12 @@ See [Graph Agent details](docs/GRAPH.md) and the [demo checklist](docs/DEMO.md).
 ## Security boundaries
 
 - Agents cannot choose a URL, MCP server, model, secret name, payment recipient, token, network, amount, or arbitrary RPC call.
+- AWS agents receive only grants, mission scheduling state, and proposal status; they cannot read the dashboard state or audit log.
 - Only `graph.answer` and `tx.prepare` are grantable tools.
 - x402 is fixed to The Graph testnet gateway, Base Sepolia USDC, and a maximum of `0.02 USDC` per payment.
 - The fixed reward is `0.01 USDC` to the configured Graph Agent payment address.
 - Provider credentials exist briefly in local broker process memory; Node.js strings cannot be reliably zeroized.
+- The Key Ring password briefly appears in each `wallet-cli` child environment because that is the CLI's documented non-interactive interface; it is absent from the long-running broker environment and from every AWS process.
 - A compromised local broker OS or `wallet-cli` breaks the trusted boundary. This is not a TEE or multi-tenant vault.
 - Software cannot prove what the physical Ledger screen displayed. Reject blind-signing or hash-only screens.
 

@@ -14,6 +14,7 @@
 - [ ] Record the physical Flex displaying the owner address, root grant, and exact reward transaction.
 - [ ] Show `wallet-cli ring` encrypt/decrypt succeeds without printing any secret.
 - [ ] Show agent containers have no credential, broker-state, or connector-token mounts.
+- [ ] Show the AWS agent-state response excludes dashboard, payment-payload, and audit-log data.
 - [ ] Show the relay rejects owner routes and stops working when the local connector is closed.
 - [ ] Complete a fresh live Graph MCP mission with source and time-window evidence.
 - [ ] Complete and link one Base Sepolia x402 settlement.

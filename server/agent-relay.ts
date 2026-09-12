@@ -5,7 +5,7 @@ import type { Response } from "express";
 // Two distinct listeners: agent network and host-loopback SSM connector.
 // No credentials, wallet signing, or provider access live in this process.
 export function createRelay(token: string) {
-  if (token.length < 32) throw Error("RELAY_TOKEN_REQUIRED");
+  if (!/^[a-f0-9]{64}$/.test(token)) throw Error("RELAY_TOKEN_REQUIRED");
   const jobs = new Map<string, {
     id: string; path: string; method: string; body: unknown;
     response: Response; delivered: boolean; timer: ReturnType<typeof setTimeout>;
@@ -24,7 +24,7 @@ export function createRelay(token: string) {
   });
   agents.all("/api/:path", (req, res) => {
     const path = String(req.params.path);
-    if (!(req.method === "GET" && path === "state") &&
+    if (!(req.method === "GET" && path === "agent-state") &&
         !(req.method === "POST" && ["call", "grants", "manifests"].includes(path))) {
       res.status(403).json({ error: "RELAY_ROUTE_DENIED" }); return;
     }
@@ -47,7 +47,13 @@ export function createRelay(token: string) {
     const job = jobs.get(String(req.params.id));
     if (!job || !job.delivered) { res.sendStatus(404); return; }
     const status = req.body?.status;
-    if (!Number.isInteger(status) || status < 200 || status > 599) { res.sendStatus(400); return; }
+    if (
+      !req.body ||
+      Object.keys(req.body).some((key) => !["status", "body"].includes(key)) ||
+      !Number.isInteger(status) ||
+      status < 200 ||
+      status > 599
+    ) { res.sendStatus(400); return; }
     clearTimeout(job.timer); jobs.delete(job.id);
     job.response.status(status).json(req.body.body);
     res.sendStatus(204);

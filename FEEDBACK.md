@@ -13,7 +13,7 @@ RingTree uses Ledger Flex, DMK/WebHID, the Ethereum signer, and the official `wa
 
 ### Password input
 
-Shell environment variables are easy to leak through history or process inspection. Add first-class `--password-stdin` or OS-keychain reference support and a documented password-change flow.
+Shell environment variables are easy to leak through history or process inspection. RingTree therefore keeps the password out of its long-running broker environment and sets `WALLET_PASS` only on short-lived CLI children. First-class `--password-stdin` or OS-keychain reference support would remove even that remaining exposure and simplify a documented password-change flow.
 
 ### Headless/no-USB guidance
 

@@ -8,6 +8,9 @@ import { LiveTools } from "./tools";
 import { GraphAgent } from "./graph-agent";
 import { X402GraphPayments } from "./x402";
 import { createApp } from "./app";
+// The broker never reads a long-lived password from its environment. The
+// interactive setup entrypoint verifies it and stores it in process memory.
+delete process.env.WALLET_PASS;
 const config = loadConfig();
 const store = new Store(join(dataDir, "ringtree.sqlite"));
 const secret = new RingSecret(dataDir);

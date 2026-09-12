@@ -1,10 +1,10 @@
 import { join } from "node:path";
 import { existsSync, writeFileSync, mkdirSync } from "node:fs";
-import { spawn } from "node:child_process";
 import { Wallet, getAddress, hexlify, randomBytes } from "ethers";
 import { dataDir } from "../server/config";
 import { ask, hidden, save } from "./io";
 import { checkRing, ringTransform } from "../server/wallet-cli";
+import { setSessionPassword } from "../server/session-password";
 async function main() {
   const command = process.argv[2] ?? "config";
   mkdirSync(dataDir, { recursive: true, mode: 0o700 });
@@ -127,14 +127,11 @@ async function main() {
     const password = await hidden(
       "Key Ring password for this broker session (hidden): ",
     );
-    const child = spawn(
-      process.execPath,
-      ["--import", "tsx", "server/main.ts"],
-      { env: { ...process.env, WALLET_PASS: password }, stdio: "inherit" },
-    );
-    child.on("exit", (code) => {
-      process.exitCode = code ?? 1;
-    });
+    console.log("Verifying wallet-cli ring access with public probe text…");
+    await checkRing(password);
+    delete process.env.WALLET_PASS;
+    setSessionPassword(password);
+    await import("../server/main");
     return;
   }
   if (command === "status") {

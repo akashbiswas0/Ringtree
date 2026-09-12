@@ -24,10 +24,8 @@ type Manifest = {
 };
 type State = {
   configured: boolean;
-  ringReady: boolean;
   graphReady?: boolean;
   salt: string;
-  owner: string;
   grants: Array<{ grant: Grant; revoked: boolean }>;
   graphMissions?: Array<{
     id: string;
@@ -56,7 +54,7 @@ async function api(path: string, body?: unknown) {
 async function main() {
   const command = process.argv[2];
   if (command === "init") {
-    const state = (await api("state")) as State;
+    const state = (await api("agent-state")) as State;
     if (!state.configured)
       throw new Error("Configure the owner first with npm run setup.");
     if (existsSync(join(dir, "manifest.json")))
@@ -143,7 +141,7 @@ async function main() {
     console.log(`${role}: waiting for a valid Ledger grant.`);
     while (true) {
       try {
-        const s = (await api("state")) as State;
+        const s = (await api("agent-state")) as State;
         const queuedGraphMission = s.graphMissions?.find(
           (item) => item.status === "queued" && !done.has(item.id),
         );
