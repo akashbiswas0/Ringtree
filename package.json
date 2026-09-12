@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "connect:aws": "tsx scripts/local-connector.ts",
     "dev": "concurrently -k \"npm:broker\" \"npm:web\"",
     "web": "vite --host 127.0.0.1 --port 3000",
     "broker": "tsx server/main.ts",

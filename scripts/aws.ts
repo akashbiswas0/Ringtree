@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { ConfigSchema } from "../server/config";
 import { JoinRequest, JoinBundle, joinTypes, approvalMessage } from "../shared/enrollment";
 import { verifyOwnerApproval } from "../shared/owner-approval";
@@ -29,6 +29,39 @@ function command(instance:string,commands:string[]) {
 const compose="docker compose -f /opt/ringtree/app/deploy/compose.aws.yaml";
 async function main() {
   const [action,file]=process.argv.slice(2), o=outputs();
+  if(action === "relay-tunnel") {
+    run("aws",["ssm","start-session","--region",region,"--target",o.InstanceId,"--document-name","AWS-StartPortForwardingSession","--parameters",JSON.stringify({portNumber:["4320"],localPortNumber:["4320"]})],true);
+    return;
+  }
+  if(action === "deploy-relay") {
+    const tokenPath=resolve(".ringtree/relay-token");
+    if(!existsSync(tokenPath))writeFileSync(tokenPath,randomBytes(32).toString("hex"),{mode:0o600,flag:"wx"});
+    const token=readFileSync(tokenPath,"utf8").trim();
+    if(!/^[a-f0-9]{64}$/.test(token))throw Error("Invalid relay token file");
+    const archive=join(dir,"local-broker-release.tar.gz");
+    run("tar",["--exclude=.DS_Store","--exclude=._*","-czf",archive,"package.json","package-lock.json","Dockerfile",".dockerignore","index.html","tsconfig.json","vite.config.ts","src","server","shared","scripts","deploy"]);
+    const digest=createHash("sha256").update(readFileSync(archive)).digest("hex");
+    const prefix=`releases/local-broker-${digest}`;
+    for(const [path,name] of [[archive,"release.tar.gz"],[tokenPath,"relay-token"]])
+      run("aws",["s3","cp",path,`s3://${o.ArtifactBucket}/${prefix}/${name}`,"--region",region,"--only-show-errors"]);
+    const id=command(o.InstanceId,[
+      "set -eu",
+      `aws s3 cp s3://${o.ArtifactBucket}/${prefix}/release.tar.gz /opt/ringtree/local-broker-release.tar.gz --region ${region} --only-show-errors`,
+      `echo '${digest}  /opt/ringtree/local-broker-release.tar.gz' | sha256sum -c -`,
+      "tar -xzf /opt/ringtree/local-broker-release.tar.gz -C /opt/ringtree/app",
+      "cd /opt/ringtree/app",
+      "docker build --platform linux/arm64 -t ringtree:aws-arm64 .",
+      "install -d -o 1000 -g 1000 -m 700 /opt/ringtree/state/relay",
+      `aws s3 cp s3://${o.ArtifactBucket}/${prefix}/relay-token /opt/ringtree/state/relay/token --region ${region} --only-show-errors`,
+      "chown 1000:1000 /opt/ringtree/state/relay/token",
+      "chmod 600 /opt/ringtree/state/relay/token",
+      `${compose} stop`,
+      "docker compose -f deploy/compose.local-broker.yaml up -d --remove-orphans",
+      "docker compose -f deploy/compose.local-broker.yaml ps",
+    ]);
+    console.log({commandId:id,next:"After Success: npm run aws -- relay-tunnel, then npm run connect:aws"});
+    return;
+  }
   if(action==="status") {console.log({region,stack,...o});console.log(aws(["ec2","describe-instances","--instance-ids",o.InstanceId,"--query","Reservations[].Instances[].{Id:InstanceId,State:State.Name,Type:InstanceType,Architecture:Architecture}"]));return;}
   if(action==="upload") {
     const config=ConfigSchema.parse(JSON.parse(readFileSync(".ringtree/broker/config.json","utf8")));

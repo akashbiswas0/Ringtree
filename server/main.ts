@@ -36,9 +36,11 @@ const tools = new LiveTools(
 );
 const app = createApp(store, config, tools, secret);
 if (existsSync("dist")) app.use(express.static(resolve("dist")));
-app.listen(4318, process.env.RINGTREE_LISTEN ?? "127.0.0.1", () =>
+const port = Number(process.env.RINGTREE_PORT ?? 4318);
+if (!Number.isInteger(port) || port < 1024 || port > 65535) throw Error("INVALID_PORT");
+app.listen(port, process.env.RINGTREE_LISTEN ?? "127.0.0.1", () =>
   console.log(
-    "RingTree broker: http://localhost:4318" +
+    `RingTree broker: http://localhost:${port}` +
       (config ? "" : " — run npm run setup"),
   ),
 );

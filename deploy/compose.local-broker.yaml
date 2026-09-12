@@ -1,0 +1,49 @@
+name: ringtree-aws
+services:
+  broker:
+    image: ringtree:aws-arm64
+    restart: unless-stopped
+    command: ["node", "--import", "tsx", "scripts/agent-relay.ts"]
+    ports: ["127.0.0.1:4320:4320"]
+    volumes:
+      - /opt/ringtree/state/relay/token:/run/relay/token:ro
+    networks: [agents, connector]
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=32m,mode=1777"]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 256m
+    pids_limit: 64
+  orchestrator: &agent
+    image: ringtree:aws-arm64
+    restart: unless-stopped
+    command: ["npm", "run", "agent", "--", "start", "orchestrator"]
+    environment:
+      RINGTREE_BROKER_URL: http://broker:4318
+      RINGTREE_ROLE_DIR: /identity
+      RINGTREE_MANIFEST: /manifest.json
+    volumes:
+      - /opt/ringtree/state/agents/orchestrator:/identity
+      - /opt/ringtree/state/agents/manifest.json:/manifest.json:ro
+    networks: [agents]
+    read_only: true
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=64m,mode=1777"]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    pids_limit: 64
+  researcher:
+    <<: *agent
+    command: ["npm", "run", "agent", "--", "start", "researcher"]
+    volumes:
+      - /opt/ringtree/state/agents/researcher:/identity
+      - /opt/ringtree/state/agents/manifest.json:/manifest.json:ro
+  executor:
+    <<: *agent
+    command: ["npm", "run", "agent", "--", "start", "executor"]
+    volumes:
+      - /opt/ringtree/state/agents/executor:/identity
+      - /opt/ringtree/state/agents/manifest.json:/manifest.json:ro
+networks:
+  agents: { internal: true }
+  connector: {}

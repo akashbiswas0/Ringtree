@@ -56,7 +56,7 @@ async function api(path: string, body?: unknown) {
     method: body ? "POST" : "GET",
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
-    signal: AbortSignal.timeout(65000),
+    signal: AbortSignal.timeout(260000),
   });
   const v = await r.json();
   if (!r.ok) throw new Error(v.error ?? "REQUEST_FAILED");
