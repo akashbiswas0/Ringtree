@@ -1,0 +1,98 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: RingTree private ARM64 MVP - m7g.large with SSM-only access
+Parameters:
+  VpcId: { Type: AWS::EC2::VPC::Id }
+  SubnetId: { Type: AWS::EC2::Subnet::Id }
+  UbuntuAmi:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id
+Resources:
+  Artifacts:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      LifecycleConfiguration:
+        Rules:
+          - { Id: ExpireReleaseStaging, Status: Enabled, ExpirationInDays: 7, Prefix: releases/ }
+      Tags: [{ Key: Project, Value: RingTree }]
+  ArtifactPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref Artifacts
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource: [!GetAtt Artifacts.Arn, !Sub '${Artifacts.Arn}/*']
+            Condition: { Bool: { 'aws:SecureTransport': false } }
+  Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns: [arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore]
+      Policies:
+        - PolicyName: ReadRingTreeReleaseOnly
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub '${Artifacts.Arn}/releases/*'
+  Profile:
+    Type: AWS::IAM::InstanceProfile
+    Properties: { Roles: [!Ref Role] }
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: RingTree SSM only - no inbound ports
+      VpcId: !Ref VpcId
+      SecurityGroupIngress: []
+      SecurityGroupEgress: [{ IpProtocol: '-1', CidrIp: 0.0.0.0/0 }]
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref UbuntuAmi
+      InstanceType: m7g.large
+      IamInstanceProfile: !Ref Profile
+      NetworkInterfaces:
+        - { DeviceIndex: '0', AssociatePublicIpAddress: true, SubnetId: !Ref SubnetId, GroupSet: [!Ref SecurityGroup] }
+      MetadataOptions: { HttpTokens: required, HttpPutResponseHopLimit: 1 }
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs: { VolumeSize: 20, VolumeType: gp3, Encrypted: true, DeleteOnTermination: true }
+      Tags: [{ Key: Name, Value: ringtree-mvp-us }, { Key: Project, Value: RingTree }]
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          set -eu
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          apt-get install -y docker.io docker-compose-v2 unzip curl
+          systemctl enable --now docker
+          task_dir=$(mktemp -d)
+          cd "$task_dir"
+          curl --fail --silent --show-error https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip -o awscliv2.zip
+          unzip -q awscliv2.zip
+          ./aws/install
+          snap start amazon-ssm-agent || { snap install amazon-ssm-agent --classic; snap start amazon-ssm-agent; }
+          install -d -m 0700 -o 1000 -g 1000 /opt/ringtree/state/broker /opt/ringtree/state/keychain /opt/ringtree/state/agents /opt/ringtree/state/secrets
+          install -d -m 0755 /opt/ringtree/app
+Outputs:
+  InstanceId: { Value: !Ref Instance }
+  ArtifactBucket: { Value: !Ref Artifacts }
+  Region: { Value: !Ref 'AWS::Region' }
