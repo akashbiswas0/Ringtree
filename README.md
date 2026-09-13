@@ -11,7 +11,8 @@ RingTree is a single-owner, Ledger-rooted control plane for agents running on an
 - A credential-free AWS relay reachable only through an authenticated SSM tunnel.
 - A minimal AWS agent-state response that omits owner UI, payment payloads, provider details, and audit history.
 - A Graph Agent using `gpt-5.6-terra`, the live RingTree Base Sepolia USDC Subgraph, and The Graph Subgraph MCP.
-- A separate Key Ring-protected payment wallet that makes a capped Base Sepolia x402 query.
+- A separate Key Ring-protected payment wallet that pays for the published RingTree Subgraph's real USDC activity query through x402.
+- Deterministic 24-hour USDC windows plus durable per-query, per-mission, and daily Graph spend controls.
 - One mission-linked `0.01 USDC` reward proposed only after a successful Graph mission and signed separately on Ledger.
 - Persistent SQLite mission history and a hash-linked audit log.
 
@@ -72,7 +73,7 @@ The connector defaults to local broker port `4321`. Override it with `RINGTREE_L
 
 ## Graph integration
 
-The first-party `ledger-agent` Subgraph indexes Circle Base Sepolia USDC transfers from block `46600000`, account totals, and global activity. The agent must also discover an active Subgraph through The Graph MCP, verify its activity, inspect its schema, and execute a live query before returning an answer. It normalizes six-decimal USDC and must disclose mismatched comparison windows.
+The first-party `ledger-agent` Subgraph indexes Circle Base Sepolia USDC transfers from block `46600000`, account totals, hourly/day snapshots, large transfers, whale activity, and global activity. The agent must also discover active Subgraphs through The Graph MCP, verify activity, inspect schemas, and execute live queries before returning an answer. It records exact query/identifier hashes, normalizes six-decimal USDC, and rejects explicit two-protocol comparisons unless both sources were queried.
 
 See [Graph Agent details](docs/GRAPH.md) and the [demo checklist](docs/DEMO.md).
 
@@ -82,6 +83,7 @@ See [Graph Agent details](docs/GRAPH.md) and the [demo checklist](docs/DEMO.md).
 - AWS agents receive only grants, mission scheduling state, and proposal status; they cannot read the dashboard state or audit log.
 - Only `graph.answer` and `tx.prepare` are grantable tools.
 - x402 is fixed to The Graph testnet gateway, Base Sepolia USDC, and a maximum of `0.02 USDC` per payment.
+- x402 is limited to one durable receipt per mission and `0.10 USDC` per UTC day.
 - The fixed reward is `0.01 USDC` to the configured Graph Agent payment address.
 - Provider credentials exist briefly in local broker process memory; Node.js strings cannot be reliably zeroized.
 - The Key Ring password briefly appears in each `wallet-cli` child environment because that is the CLI's documented non-interactive interface; it is absent from the long-running broker environment and from every AWS process.

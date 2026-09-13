@@ -98,7 +98,10 @@ export class LiveTools implements ToolProvider {
   async execute(tool: string, input: Record<string, unknown>) {
     if (tool === "graph.answer") {
       if (!this.graphAgent) throw new Error("GRAPH_AGENT_UNAVAILABLE");
-      return this.graphAgent.answer(String(input.question));
+      return this.graphAgent.answer(
+        String(input.question),
+        String(input.missionId),
+      );
     }
     throw new Error("TOOL_DENIED");
   }

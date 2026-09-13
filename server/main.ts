@@ -21,7 +21,12 @@ const paymentAddress = existsSync(paymentAddressPath)
   ? (JSON.parse(readFileSync(paymentAddressPath, "utf8")) as { address: string })
       .address
   : undefined;
-const x402 = new X402GraphPayments(paymentCredential, paymentAddress);
+const x402 = new X402GraphPayments(
+  paymentCredential,
+  paymentAddress,
+  fetch,
+  store,
+);
 const graphAgent = new GraphAgent(
   secret,
   graphCredential,

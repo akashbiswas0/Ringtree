@@ -19,7 +19,8 @@ describe("USDC activity", () => {
       createTransferEvent(
         Address.fromString(FROM),
         Address.fromString(TO),
-        BigInt.fromI32(2500000)
+        BigInt.fromString("150000000000"),
+        BigInt.fromI32(7200)
       )
     )
   })
@@ -29,9 +30,16 @@ describe("USDC activity", () => {
   test("indexes transfers and account aggregates", () => {
     assert.entityCount("Transfer", 1)
     assert.entityCount("Account", 2)
-    assert.fieldEquals("Account", FROM, "sentAmount", "2500000")
-    assert.fieldEquals("Account", TO, "receivedAmount", "2500000")
+    assert.fieldEquals("Account", FROM, "sentAmount", "150000000000")
+    assert.fieldEquals("Account", TO, "receivedAmount", "150000000000")
     assert.fieldEquals("USDCActivity", "global", "totalTransferCount", "1")
-    assert.fieldEquals("USDCActivity", "global", "totalVolume", "2500000")
+    assert.fieldEquals("USDCActivity", "global", "totalVolume", "150000000000")
+    assert.fieldEquals("USDCActivityHour", "7200", "transferCount", "1")
+    assert.fieldEquals("USDCActivityHour", "7200", "volume", "150000000000")
+    assert.fieldEquals("USDCActivityHour", "7200", "largeTransferCount", "1")
+    assert.fieldEquals("USDCActivityHour", "7200", "whaleTransferCount", "1")
+    assert.fieldEquals("USDCActivityHour", "7200", "whaleVolume", "150000000000")
+    assert.fieldEquals("USDCActivityDay", "0", "transferCount", "1")
+    assert.fieldEquals("USDCActivityDay", "0", "maxTransfer", "150000000000")
   })
 })

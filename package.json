@@ -17,6 +17,7 @@
     "graph:build": "yarn --cwd subgraph build",
     "graph:test": "yarn --cwd subgraph test",
     "graph:deploy": "yarn --cwd subgraph deploy",
+    "graph:publish": "yarn --cwd subgraph publish",
     "start": "tsx server/main.ts"
   },
   "dependencies": {

@@ -5,9 +5,11 @@ import { Transfer } from "../generated/USDC/USDC"
 export function createTransferEvent(
   from: Address,
   to: Address,
-  value: BigInt
+  value: BigInt,
+  timestamp: BigInt
 ): Transfer {
   let event = changetype<Transfer>(newMockEvent())
+  event.block.timestamp = timestamp
   event.parameters = new Array()
   event.parameters.push(
     new ethereum.EventParam("from", ethereum.Value.fromAddress(from))

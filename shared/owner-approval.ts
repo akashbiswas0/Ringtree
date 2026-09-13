@@ -1,10 +1,14 @@
 import { TypedDataEncoder, verifyMessage, type TypedDataDomain, type TypedDataField } from "ethers";
 import { domain, canonical, hostTypes, grantTypes, decisionTypes, revokeTypes, ROOT } from "./protocol";
+import {
+  X402_DAILY_BUDGET_LABEL,
+  X402_MAX_PAYMENT_LABEL,
+} from "./payment";
 
 const schemas = { ...hostTypes, ...grantTypes, ...decisionTypes, ...revokeTypes };
 const purposes: Record<string, string> = {
   HostEnrollment: "Change agent host admission. Enrollment stays active until revoked. A separate grant is required to use tools.",
-  AgentGrant: "Authorize scoped agent tools and narrower delegation. API calls may incur provider charges. No API key export. No transaction signing authority.",
+  AgentGrant: `Authorize scoped agent tools and narrower delegation. Graph queries may spend up to ${X402_MAX_PAYMENT_LABEL} each and ${X402_DAILY_BUDGET_LABEL} per UTC day from the separate agent wallet. No API key export. No transaction signing authority.`,
   ActionDecision: "Record a workflow decision for the exact transaction digest below. Moving funds still requires a separate transaction signature.",
   RevokeGrant: "Revoke this grant and block its descendants on their next request.",
 };

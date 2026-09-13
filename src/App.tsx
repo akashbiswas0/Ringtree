@@ -16,6 +16,11 @@ import {
 import { hexlify, randomBytes, Transaction } from "ethers";
 import { LedgerController, deviceError } from "./ledger";
 import {
+  formatCount,
+  formatPercentChange,
+  formatStableAtomic,
+} from "./format";
+import {
   domain,
   ROOT,
   TOOLS,
@@ -71,18 +76,68 @@ type State = {
       text?: string;
       source?: string;
       live?: boolean;
-      mcpCalls?: Array<{ name: string; status: string }>;
+      analysisMode?: "standardized-defi" | "general-live-data";
+      mcpCalls?: Array<{
+        name: string;
+        status: string;
+        identifier?: string;
+        query?: string;
+        argumentsHash?: string;
+        outputHash?: string;
+        outputBytes?: number;
+        standardizedSchema?: boolean;
+        max30DayQueryCount?: string;
+      }>;
       customSubgraph?: {
         endpoint: string;
         blockNumber: number;
+        blockTimestamp?: number;
+        freshnessSeconds?: number;
         indexedTransfers: string;
         indexedVolume: string;
+        indexedVolumeUsdc?: string;
+        enhancedSnapshots?: boolean;
+        latest24Hours?: {
+          fromTimestamp: number;
+          toTimestamp: number;
+          observedBuckets: number;
+          transferCount: string;
+          volumeUnits: string;
+          volumeUsdc: string;
+          maxTransferUnits: string;
+          maxTransferUsdc: string;
+          largeTransferCount: string;
+          whaleTransferCount: string;
+          whaleVolumeUnits: string;
+          whaleVolumeUsdc: string;
+        };
+        previous24Hours?: {
+          volumeUnits: string;
+          transferCount: string;
+        };
+        volumeChangePercent?: string;
+        transferCountChangePercent?: string;
       };
       x402?: {
-        status: "disabled" | "unfunded" | "paid" | "failed";
+        status:
+          | "disabled"
+          | "unfunded"
+          | "paid"
+          | "failed"
+          | "budget-exhausted"
+          | "duplicate-blocked";
+        subgraphId?: string;
+        queryHash?: string;
+        dailyBudgetUnits?: string;
+        dailySpentUnits?: string;
         balanceUnits?: string;
         paidAmountUnits?: string;
         paymentHash?: string;
+        blockNumber?: number;
+        blockTimestamp?: number;
+        freshnessSeconds?: number;
+        reason?: string;
+        reused?: boolean;
       };
     };
     rewardStatus?: "pending" | "approved" | "signed" | "broadcast" | "rejected";
@@ -104,14 +159,6 @@ type State = {
 const nonce = () => hexlify(randomBytes(32));
 const now = () => Math.floor(Date.now() / 1000);
 const short = (s: string) => s.slice(0, 8) + "…" + s.slice(-6);
-const formatCount = (value: string | undefined) => {
-  if (!value) return "--";
-  try {
-    return BigInt(value).toLocaleString("en-US");
-  } catch {
-    return "--";
-  }
-};
 const readable = (v: unknown) => JSON.stringify(v, null, 2);
 async function api(path: string, body?: unknown) {
   const r = await fetch("/api/" + path, {
@@ -761,7 +808,7 @@ export default function App() {
                         id="graph-question"
                         value={graphQuestion}
                         onChange={(event) => setGraphQuestion(event.target.value)}
-                        placeholder="Summarize recent Base Sepolia USDC activity and compare it with another active Subgraph."
+                        placeholder="Compare Aave and Morpho lending activity over the same 24-hour window. Include TVL, utilization, rates, liquidations and limitations."
                         maxLength={600}
                         rows={5}
                         aria-describedby="graph-question-help"
@@ -807,8 +854,9 @@ export default function App() {
                         <li>Discover relevant Subgraphs</li>
                         <li>Verify 30-day query activity</li>
                         <li>Inspect the selected schema</li>
-                        <li>Run a focused live query</li>
-                        <li>Explain facts and limitations</li>
+                        <li>Align metrics and time windows</li>
+                        <li>Run one live query per protocol</li>
+                        <li>Explain facts, risks and limitations</li>
                       </ol>
                       <p className="footnote">
                         Graph and OpenAI keys are decrypted only inside the broker through wallet-cli ring.
@@ -862,20 +910,82 @@ export default function App() {
                                   <span key={call.name + "-" + index}>{call.name}</span>
                                 ))}
                               </div>
-                              <small>Live source: {mission.result.source}</small>
+                              <small>
+                                Live source: {mission.result.source}
+                                {mission.result.analysisMode
+                                  ? ` · ${mission.result.analysisMode === "standardized-defi" ? "standardized DeFi schema verified" : "general live-data mode"}`
+                                  : ""}
+                              </small>
                               {mission.result.customSubgraph && (
-                                <small className="custom-source">
-                                  ledger-agent · block {mission.result.customSubgraph.blockNumber.toLocaleString("en-US")} · {formatCount(mission.result.customSubgraph.indexedTransfers)} indexed transfers
-                                </small>
+                                <div className="custom-source">
+                                  <small>
+                                    ledger-agent · block {mission.result.customSubgraph.blockNumber.toLocaleString("en-US")} · {formatCount(mission.result.customSubgraph.indexedTransfers)} transfers · <span className="tabular-nums">{formatStableAtomic(mission.result.customSubgraph.indexedVolume)}</span> cumulative volume
+                                    {mission.result.customSubgraph.freshnessSeconds !== undefined
+                                      ? ` · ${mission.result.customSubgraph.freshnessSeconds}s freshness`
+                                      : ""}
+                                  </small>
+                                  {mission.result.customSubgraph.latest24Hours ? (
+                                    <div className="graph-metrics" aria-label="Deterministic 24-hour USDC activity">
+                                      <div>
+                                        <span>24h volume</span>
+                                        <strong className="mono tabular-nums" aria-label={`${mission.result.customSubgraph.latest24Hours.volumeUsdc} USDC`}>
+                                          {formatStableAtomic(mission.result.customSubgraph.latest24Hours.volumeUnits)}
+                                        </strong>
+                                      </div>
+                                      <div>
+                                        <span>Transfers</span>
+                                        <strong className="mono tabular-nums">
+                                          {formatCount(mission.result.customSubgraph.latest24Hours.transferCount)}
+                                        </strong>
+                                      </div>
+                                      <div>
+                                        <span>Whale transfers</span>
+                                        <strong className="mono tabular-nums">
+                                          {formatCount(mission.result.customSubgraph.latest24Hours.whaleTransferCount)}
+                                        </strong>
+                                      </div>
+                                      <div>
+                                        <span>Volume change</span>
+                                        <strong className="mono tabular-nums">
+                                          {formatPercentChange(mission.result.customSubgraph.volumeChangePercent)}
+                                        </strong>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <small className="snapshot-note">
+                                      Hourly comparisons activate after the enhanced Subgraph version is deployed.
+                                    </small>
+                                  )}
+                                </div>
                               )}
                               {mission.result.x402 && (
                                 <div className="custom-source">
                                   <small>
                                     x402 query: {mission.result.x402.status}
                                     {mission.result.x402.paidAmountUnits
-                                      ? ` · ${mission.result.x402.paidAmountUnits} atomic USDC`
+                                      ? ` · ${formatStableAtomic(mission.result.x402.paidAmountUnits)} USDC`
                                       : ""}
+                                    {mission.result.x402.reused ? " · reused receipt" : ""}
                                   </small>
+                                  {mission.result.x402.subgraphId && (
+                                    <small className="snapshot-note mono">
+                                      Published Subgraph: {mission.result.x402.subgraphId}
+                                      {mission.result.x402.blockNumber !== undefined
+                                        ? ` · block ${mission.result.x402.blockNumber.toLocaleString("en-US")}`
+                                        : ""}
+                                      {mission.result.x402.freshnessSeconds !== undefined
+                                        ? ` · ${mission.result.x402.freshnessSeconds}s freshness`
+                                        : ""}
+                                    </small>
+                                  )}
+                                  {mission.result.x402.dailySpentUnits && mission.result.x402.dailyBudgetUnits && (
+                                    <small className="snapshot-note mono tabular-nums">
+                                      Daily Graph spend: {formatStableAtomic(mission.result.x402.dailySpentUnits)} / {formatStableAtomic(mission.result.x402.dailyBudgetUnits)} USDC
+                                    </small>
+                                  )}
+                                  {mission.result.x402.reason && (
+                                    <small className="snapshot-note">{mission.result.x402.reason}</small>
+                                  )}
                                   {mission.result.x402.paymentHash && (
                                     <a
                                       href={
@@ -890,6 +1000,39 @@ export default function App() {
                                     </a>
                                   )}
                                 </div>
+                              )}
+                              {mission.result.mcpCalls?.some(
+                                (call) => call.identifier || call.query,
+                              ) && (
+                                <details className="query-evidence">
+                                  <summary>View verifiable query evidence</summary>
+                                  {mission.result.mcpCalls
+                                    .filter((call) => call.identifier || call.query)
+                                    .map((call, index) => (
+                                      <article key={`${call.name}-evidence-${index}`}>
+                                        <strong>{call.name}</strong>
+                                        {call.standardizedSchema && (
+                                          <span className="evidence-status">
+                                            Standardized schema
+                                          </span>
+                                        )}
+                                        {call.max30DayQueryCount && (
+                                          <span className="evidence-status tabular-nums">
+                                            {formatCount(call.max30DayQueryCount)} queries in 30 days
+                                          </span>
+                                        )}
+                                        {call.identifier && (
+                                          <code>{call.identifier}</code>
+                                        )}
+                                        {call.query && <pre>{call.query}</pre>}
+                                        {call.outputHash && (
+                                          <small className="mono">
+                                            Output evidence {short(call.outputHash)} · {call.outputBytes === undefined ? "--" : formatCount(String(call.outputBytes))} bytes
+                                          </small>
+                                        )}
+                                      </article>
+                                    ))}
+                                </details>
                               )}
                             </div>
                           )}
@@ -1120,8 +1263,8 @@ export default function App() {
         <footer>
           <span>RingTree MVP · Ledger DMK + wallet-cli ring</span>
           <span>
-            Hardware verification and remote enrollment require your device
-            setup.
+            Ledger approval stays local; AWS agents receive capabilities, never
+            credentials.
           </span>
         </footer>
       </main>

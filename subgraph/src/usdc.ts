@@ -1,9 +1,19 @@
 import { BigInt, Bytes } from "@graphprotocol/graph-ts"
 import { Transfer as TransferEvent } from "../generated/USDC/USDC"
-import { Account, Transfer, USDCActivity } from "../generated/schema"
+import {
+  Account,
+  Transfer,
+  USDCActivity,
+  USDCActivityDay,
+  USDCActivityHour
+} from "../generated/schema"
 
 const ONE = BigInt.fromI32(1)
 const GLOBAL = "global"
+const HOUR = BigInt.fromI32(3600)
+const DAY = BigInt.fromI32(86400)
+const LARGE_TRANSFER = BigInt.fromString("10000000000") // 10,000 USDC
+const WHALE_TRANSFER = BigInt.fromString("100000000000") // 100,000 USDC
 
 function account(id: Bytes, event: TransferEvent): Account {
   let entity = Account.load(id)
@@ -16,6 +26,58 @@ function account(id: Bytes, event: TransferEvent): Account {
   entity.lastActiveBlock = event.block.number
   entity.lastActiveTimestamp = event.block.timestamp
   return entity
+}
+
+function updateHour(event: TransferEvent): void {
+  let timestamp = event.block.timestamp.div(HOUR).times(HOUR)
+  let snapshot = USDCActivityHour.load(timestamp.toString())
+  if (snapshot == null) {
+    snapshot = new USDCActivityHour(timestamp.toString())
+    snapshot.timestamp = timestamp
+    snapshot.transferCount = BigInt.zero()
+    snapshot.volume = BigInt.zero()
+    snapshot.maxTransfer = BigInt.zero()
+    snapshot.largeTransferCount = BigInt.zero()
+    snapshot.whaleTransferCount = BigInt.zero()
+    snapshot.whaleVolume = BigInt.zero()
+  }
+  snapshot.transferCount = snapshot.transferCount.plus(ONE)
+  snapshot.volume = snapshot.volume.plus(event.params.value)
+  if (event.params.value.gt(snapshot.maxTransfer))
+    snapshot.maxTransfer = event.params.value
+  if (event.params.value.ge(LARGE_TRANSFER))
+    snapshot.largeTransferCount = snapshot.largeTransferCount.plus(ONE)
+  if (event.params.value.ge(WHALE_TRANSFER)) {
+    snapshot.whaleTransferCount = snapshot.whaleTransferCount.plus(ONE)
+    snapshot.whaleVolume = snapshot.whaleVolume.plus(event.params.value)
+  }
+  snapshot.save()
+}
+
+function updateDay(event: TransferEvent): void {
+  let timestamp = event.block.timestamp.div(DAY).times(DAY)
+  let snapshot = USDCActivityDay.load(timestamp.toString())
+  if (snapshot == null) {
+    snapshot = new USDCActivityDay(timestamp.toString())
+    snapshot.timestamp = timestamp
+    snapshot.transferCount = BigInt.zero()
+    snapshot.volume = BigInt.zero()
+    snapshot.maxTransfer = BigInt.zero()
+    snapshot.largeTransferCount = BigInt.zero()
+    snapshot.whaleTransferCount = BigInt.zero()
+    snapshot.whaleVolume = BigInt.zero()
+  }
+  snapshot.transferCount = snapshot.transferCount.plus(ONE)
+  snapshot.volume = snapshot.volume.plus(event.params.value)
+  if (event.params.value.gt(snapshot.maxTransfer))
+    snapshot.maxTransfer = event.params.value
+  if (event.params.value.ge(LARGE_TRANSFER))
+    snapshot.largeTransferCount = snapshot.largeTransferCount.plus(ONE)
+  if (event.params.value.ge(WHALE_TRANSFER)) {
+    snapshot.whaleTransferCount = snapshot.whaleTransferCount.plus(ONE)
+    snapshot.whaleVolume = snapshot.whaleVolume.plus(event.params.value)
+  }
+  snapshot.save()
 }
 
 export function handleTransfer(event: TransferEvent): void {
@@ -51,4 +113,7 @@ export function handleTransfer(event: TransferEvent): void {
   activity.lastBlock = event.block.number
   activity.lastTimestamp = event.block.timestamp
   activity.save()
+
+  updateHour(event)
+  updateDay(event)
 }

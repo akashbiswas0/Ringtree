@@ -24,3 +24,25 @@ type USDCActivity @entity(immutable: false) {
   lastBlock: BigInt!
   lastTimestamp: BigInt!
 }
+
+type USDCActivityHour @entity(immutable: false) {
+  id: ID!
+  timestamp: BigInt!
+  transferCount: BigInt!
+  volume: BigInt!
+  maxTransfer: BigInt!
+  largeTransferCount: BigInt!
+  whaleTransferCount: BigInt!
+  whaleVolume: BigInt!
+}
+
+type USDCActivityDay @entity(immutable: false) {
+  id: ID!
+  timestamp: BigInt!
+  transferCount: BigInt!
+  volume: BigInt!
+  maxTransfer: BigInt!
+  largeTransferCount: BigInt!
+  whaleTransferCount: BigInt!
+  whaleVolume: BigInt!
+}

@@ -5,6 +5,7 @@
     "codegen": "graph codegen",
     "build": "graph build",
     "deploy": "graph deploy --node https://api.studio.thegraph.com/deploy/ ledger-agent",
+    "publish": "graph publish subgraph.yaml --protocol-network arbitrum-sepolia",
     "test": "graph test"
   },
   "dependencies": {

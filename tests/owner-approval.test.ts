@@ -55,6 +55,9 @@ describe("readable owner approval v2", () => {
     auth.host(host as Parameters<Authority["host"]>[0], await wallet.signMessage(ownerApprovalText(domain(salt), hostTypes, host)));
     const g = { id: id(), parentId: ROOT, issuer: wallet.address, subject: Wallet.createRandom().address, hostId: host.hostId, tools: ["graph.answer" as const], resource: "base-sepolia" as const, maxCalls: 2, expiresAt: host.expiresAt, nonce: id() };
     const signature = await wallet.signMessage(ownerApprovalText(domain(salt), grantTypes, grantMessage(g)));
+    expect(ownerApprovalText(domain(salt), grantTypes, grantMessage(g))).toContain(
+      "0.02 USDC each and 0.10 USDC per UTC day",
+    );
     expect(() => auth.add({ ...g, maxCalls: 3 }, signature)).toThrow("INVALID_SIGNATURE");
     expect(() => ownerApprovalText(domain(salt), grantTypes, grantMessage({ ...g, parentId: id() }))).toThrow("OWNER_APPROVAL_REQUIRES_ROOT");
     auth.add(g, signature);

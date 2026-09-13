@@ -19,6 +19,8 @@ dataSources:
         - Transfer
         - Account
         - USDCActivity
+        - USDCActivityHour
+        - USDCActivityDay
       abis:
         - name: USDC
           file: ./abis/USDC.json

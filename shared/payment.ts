@@ -5,6 +5,10 @@ export const BASE_SEPOLIA_USDC = getAddress(
 );
 export const GRAPH_REWARD_UNITS = 10_000n;
 export const GRAPH_REWARD_LABEL = "0.01 USDC";
+export const X402_MAX_PAYMENT_UNITS = 20_000n;
+export const X402_DAILY_BUDGET_UNITS = 100_000n;
+export const X402_MAX_PAYMENT_LABEL = "0.02 USDC";
+export const X402_DAILY_BUDGET_LABEL = "0.10 USDC";
 
 export const erc20 = new Interface([
   "function transfer(address to, uint256 amount) returns (bool)",
