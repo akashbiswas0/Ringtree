@@ -9,11 +9,15 @@ RingTree is a single-owner, Ledger-rooted control plane for agents running on an
 ## What is implemented
 
 - Ledger Flex address verification and signing through Ledger DMK/WebHID.
-- Readable approvals for host admission, scoped 30-minute grants, revocation, and payments.
-- Three isolated VPS identities: orchestrator, Graph Agent, and executor.
-- Expiry, replay protection, shared quotas, attenuated delegation, and cascading revocation.
-- Live Subgraph and Subgraph MCP research with guarded x402 access.
-- A fixed `0.01 USDC` reward proposed only after a successful mission and signed separately on Ledger.
+- Readable owner approvals for host admission, 30-minute root grants, revocation, and transaction decisions.
+- Three isolated AWS identities: orchestrator, Graph Agent, and executor.
+- Attenuating child grants, host and agent signatures, expiry, replay protection, shared ancestor quotas, and cascading revocation.
+- A credential-free AWS relay reachable only through an authenticated SSM tunnel.
+- A minimal AWS agent-state response that omits owner UI, payment payloads, provider details, and audit history.
+- A Graph Agent using `gpt-5.6-terra`, the live RingTree Base Sepolia USDC Subgraph, and The Graph Subgraph MCP.
+- A separate Key Ring-protected payment wallet that pays for real identity/delegation data from an allocated Graph testnet Subgraph through x402.
+- Deterministic 24-hour USDC windows plus durable per-query, per-mission, and daily Graph spend controls.
+- One mission-linked `0.01 USDC` reward proposed only after a successful Graph mission and signed separately on Ledger.
 - Persistent SQLite mission history and a hash-linked audit log.
 
 ## Architecture
@@ -64,50 +68,55 @@ flowchart TB
 
 The relay cannot access owner routes, provider credentials, the Key Ring password, broker storage, or Ledger signing. The local broker performs every policy check and provider call. The computer must remain online while the AWS agents work.
 
-## Judge setup: test Ledger locally
+## Local setup
 
-This flow uses the judge's own Ledger and a disposable local agent identity. It does not connect to RingTree's production VPS.
-
-Requirements: Node.js 22.13+, Chrome or Edge, and a Ledger Flex with the Ethereum app.
+Requirements: Node.js 22.13+, `wallet-cli` 2.1.0, Chrome or Edge, and a Ledger Flex with the Ethereum and Ledger Sync apps.
 
 ```sh
-git clone https://github.com/akashbiswas0/Ringtree.git
-cd Ringtree
 npm ci
-npm run build
 npm run setup
-npm run broker
+npm run setup -- secret
+npm run setup -- graph-secret
+npm run setup -- payment-wallet
+RINGTREE_PORT=4321 npm run setup -- serve
 ```
 
-During `npm run setup`, enter an Ethereum address verified on the Ledger. Keep the broker running, then use a second terminal:
+Use the existing Key Ring password; do not reinitialize a working ring. Setup reads secrets through hidden terminal prompts, verifies a public encrypt/decrypt probe before listening, and refuses to overwrite existing ciphertext. The password is held only in broker process memory, rather than its long-lived environment. It is passed only to short-lived `wallet-cli` subprocesses as required by the CLI.
+
+The dashboard is served by the broker at `http://localhost:4321`. Connect Flex, authorize the registered agent host, and sign a 30-minute root grant. Submit missions from the **Graph Agent** tab. A reward appears in **Approvals** only after a mission completes.
+
+## AWS agents
+
+The current VPS uses no inbound security-group rules. AWS Systems Manager carries the tunnel.
 
 ```sh
-npm run agent -- init
+npm run aws -- deploy-relay
+npm run aws -- result COMMAND_ID
+npm run aws -- relay-tunnel
 ```
 
-Open `http://localhost:4318/workspace`. Connect Ledger Flex, approve the local test host, sign a 30-minute root grant, and test revocation. These steps verify DMK/WebHID connection, on-device address verification, readable permission signing, and the capability lifecycle.
+In a second terminal:
 
-This local flow does not create a Graph mission or transaction proposal. RingTree does not accept arbitrary transactions: the `0.01 USDC` reward exists only after the private VPS Graph Agent completes a mission. Transaction signing is demonstrated in the video.
+```sh
+npm run connect:aws
+```
 
-Judges with an existing Ledger Key Ring can additionally run `npm run setup -- check` to perform a non-sensitive encrypt/decrypt probe. Do not reinitialize an existing ring.
-
-## Private live VPS
-
-The production orchestrator, Graph Agent, executor, and relay remain live on the owner's VPS. The VPS has no public inbound application port; access requires the owner's AWS Systems Manager permissions and private relay token. Judges cannot—and do not need to—connect a local clone to these agents. The complete private-VPS mission and Ledger-approved transaction flow is shown in the demo video.
-
-Owner-only deployment and tunnel scripts are included under `scripts/aws.ts` and `deploy/` for code review.
+The connector defaults to local broker port `4321`. Override it with `RINGTREE_LOCAL_BROKER_URL` if needed.
 
 ## Graph integration
 
-The deployed `ledger-agent` Subgraph, official Subgraph MCP workflow, x402 Subgraph ID, endpoints, limits, verification steps, and code map are documented in [`GRAPH.md`](GRAPH.md).
+The first-party `ledger-agent` Subgraph indexes Circle Base Sepolia USDC transfers from block `46600000`, account totals, hourly/day snapshots, large transfers, whale activity, and global activity. The agent also discovers Subgraphs through The Graph MCP, checks activity, inspects schemas, and executes live queries before returning an answer. It records exact query and identifier hashes, normalizes six-decimal USDC, and explicitly reports when a two-protocol comparison lacks two accessible live sources.
 
 ## Security boundaries
 
-- VPS agents receive signed capabilities, never provider credentials, the Key Ring password, or Ledger signing access.
 - Agents cannot choose a URL, MCP server, model, secret name, payment recipient, token, network, amount, or arbitrary RPC call.
+- AWS agents receive only grants, mission scheduling state, and proposal status; they cannot read the dashboard state or audit log.
 - Only `graph.answer` and `tx.prepare` are grantable tools.
-- x402 is fixed to The Graph testnet gateway and capped at `0.02 USDC` per payment and `0.10 USDC` per UTC day.
-- The reward is fixed at `0.01 USDC` to the configured Graph Agent payment address.
+- x402 is fixed to The Graph testnet gateway, Base Sepolia USDC, and a maximum of `0.02 USDC` per payment.
+- x402 is limited to one durable receipt per mission and `0.10 USDC` per UTC day.
+- The fixed reward is `0.01 USDC` to the configured Graph Agent payment address.
+- Provider credentials exist briefly in local broker process memory; Node.js strings cannot be reliably zeroized.
+- The Key Ring password briefly appears in each `wallet-cli` child environment because that is the CLI's documented non-interactive interface; it is absent from the long-running broker environment and from every AWS process.
 - A compromised local broker OS or `wallet-cli` breaks the trusted boundary. This is not a TEE or multi-tenant vault.
 - Software cannot prove what the physical Ledger screen displayed. Reject blind-signing or hash-only screens.
 
@@ -124,8 +133,6 @@ The deployed `ledger-agent` Subgraph, official Subgraph MCP workflow, x402 Subgr
 | `scripts/agent.ts` | Orchestrator, Graph Agent, and executor runtimes |
 | `subgraph/` | Base Sepolia USDC Subgraph |
 | `src/ledger.ts` | Ledger DMK session and signing |
-
-See [`GRAPH.md`](GRAPH.md) for The Graph details and [`FEEDBACK.md`](FEEDBACK.md) for Ledger integration feedback.
 
 ## Verification
 
