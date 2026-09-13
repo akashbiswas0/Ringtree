@@ -310,7 +310,7 @@ describe("Graph Agent remote MCP enforcement", () => {
     );
   });
 
-  it("rejects an explicit two-protocol comparison backed by one source", async () => {
+  it("returns an explicit limitation for a two-protocol comparison backed by one source", async () => {
     const fetcher = vi.fn(async (url: string | URL | Request) =>
       new Response(
         String(url).includes("api.studio.thegraph.com")
@@ -338,7 +338,7 @@ describe("Graph Agent remote MCP enforcement", () => {
                   type: "mcp_call",
                   name: "get_deployment_30day_query_counts",
                   status: "completed",
-                  output: '{"deployments":[{"total_query_count":123}]}',
+                  output: '{"deployments":[{"total_query_count":0}]}',
                 },
                 {
                   type: "mcp_call",
@@ -369,9 +369,17 @@ describe("Graph Agent remote MCP enforcement", () => {
       "test-model",
       fetcher,
     );
-    await expect(
-      agent.answer("Compare Aave and Morpho lending markets.", missionId),
-    ).rejects.toThrow("GRAPH_COMPARISON_REQUIRES_TWO_LIVE_SOURCES");
+    const result = await agent.answer(
+      "Compare Aave and Morpho lending markets.",
+      missionId,
+    );
+    expect(result.quality.comparisonComplete).toBe(false);
+    expect(result.quality.activeDeploymentVerified).toBe(false);
+    expect(result.quality.queriedSourceCount).toBe(1);
+    expect(result.text).toContain(
+      "did not obtain two distinct focused live sources",
+    );
+    expect(result.text).toContain("no nonzero 30-day query count");
   });
 
   it("does not spend x402 budget while the first-party Subgraph is syncing", async () => {
