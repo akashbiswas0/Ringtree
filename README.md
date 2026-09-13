@@ -71,13 +71,11 @@ In a second terminal:
 npm run connect:aws
 ```
 
-The connector defaults to local broker port `4321`. Override it with `RINGTREE_LOCAL_BROKER_URL` if needed. See [the local-broker runbook](docs/LOCAL-BROKER.md).
+The connector defaults to local broker port `4321`. Override it with `RINGTREE_LOCAL_BROKER_URL` if needed.
 
 ## Graph integration
 
 The first-party `ledger-agent` Subgraph indexes Circle Base Sepolia USDC transfers from block `46600000`, account totals, hourly/day snapshots, large transfers, whale activity, and global activity. The agent must also discover active Subgraphs through The Graph MCP, verify activity, inspect schemas, and execute live queries before returning an answer. It records exact query/identifier hashes, normalizes six-decimal USDC, and rejects explicit two-protocol comparisons unless both sources were queried.
-
-See [Graph Agent details](docs/GRAPH.md) and the [demo checklist](docs/DEMO.md).
 
 ## Security boundaries
 
