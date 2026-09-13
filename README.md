@@ -20,20 +20,48 @@ RingTree is a single-owner, Ledger-rooted control plane for agents running on an
 
 ## Architecture
 
-```text
-Ledger Flex
-    │ signs host, grant, revoke, and payment approvals
-    ▼
-Local RingTree broker ── wallet-cli ring ── encrypted API/payment keys
-    │
-    │ authenticated SSM relay (signed agent requests only)
-    ▼
-AWS orchestrator ──► Graph Agent ──► executor
-                         │               │
-                         ▼               ▼
-             Subgraph + Graph MCP   0.01 USDC proposal
-                         │
-                         └── capped x402 Graph query
+```mermaid
+flowchart TB
+    subgraph local["Owner computer · trusted control plane"]
+        direction LR
+        flex["Ledger Flex<br/>Hardware signer"]
+        dashboard["RingTree dashboard<br/>Mission and approval UI"]
+        broker["Local RingTree broker<br/>Policy checks · provider calls · audit"]
+        keyring["wallet-cli ring"]
+        secrets[("Encrypted OpenAI, Graph,<br/>and payment-wallet keys")]
+
+        flex -->|"Signs host admission, grants,<br/>revocations, and payments"| dashboard
+        dashboard <--> broker
+        broker <-->|"Encrypts and decrypts<br/>only when needed"| keyring
+        keyring --- secrets
+    end
+
+    subgraph aws["AWS VPS · credential-free execution"]
+        direction LR
+        orchestrator["Orchestrator"]
+        graphAgent["Graph Agent<br/>graph.answer"]
+        executor["Executor<br/>tx.prepare"]
+        relay["Authenticated agent relay<br/>Allowlisted routes only"]
+
+        orchestrator -.->|"Attenuated child grant"| graphAgent
+        orchestrator -.->|"Attenuated child grant"| executor
+        orchestrator -->|"Signed grant requests"| relay
+        graphAgent -->|"Signed mission requests"| relay
+        executor -->|"Signed tx.prepare requests"| relay
+    end
+
+    relay <-->|"AWS Systems Manager tunnel<br/>Signed agent requests only"| broker
+
+    subgraph services["External services"]
+        direction LR
+        openai["OpenAI"]
+        graph["The Graph<br/>Subgraph · MCP · x402"]
+        base["Base Sepolia<br/>USDC"]
+    end
+
+    broker <-->|"Model requests"| openai
+    broker <-->|"Live queries with<br/>durable spend caps"| graph
+    broker -->|"Broadcasts Ledger-approved<br/>0.01 USDC rewards"| base
 ```
 
 The relay cannot access owner routes, provider credentials, the Key Ring password, broker storage, or Ledger signing. The local broker performs every policy check and provider call. The computer must remain online while the AWS agents work.
