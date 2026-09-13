@@ -59,10 +59,11 @@ npm run graph:codegen
 npm run graph:build
 npm run graph:test
 npm run graph:deploy
-npm run graph:publish
 ```
 
 The Graph deploy key and runtime Gateway API key are different credentials and must not be committed.
+
+Publish synchronized releases from the `ledger-agent` Subgraph Studio page. Select `v0.0.3` and update existing Subgraph ID `9M3…Dr2t`; do not use the generic CLI publication form, which would create a duplicate unless it is given the existing ID and an API key in its URL.
 
 ## Limits
 
