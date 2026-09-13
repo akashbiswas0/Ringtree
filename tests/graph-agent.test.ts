@@ -3,6 +3,7 @@ import {
   GraphAgent,
   isFocusedGraphQuery,
   max30DayQueryCount,
+  protocolContractHints,
   requestedDefiProtocols,
   summarizeActivityWindows,
 } from "../server/graph-agent";
@@ -39,6 +40,18 @@ describe("Graph Agent remote MCP enforcement", () => {
       requestedDefiProtocols("Compare Aave and Morpho lending markets"),
     ).toEqual(["aave", "morpho"]);
     expect(requestedDefiProtocols("Summarize Base USDC activity")).toEqual([]);
+    expect(protocolContractHints("Compare Aave and Morpho on Base")).toEqual([
+      {
+        protocol: "aave",
+        chain: "base",
+        contract: "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5",
+      },
+      {
+        protocol: "morpho",
+        chain: "base",
+        contract: "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb",
+      },
+    ]);
   });
 
   it("distinguishes metadata checks from data-bearing queries", () => {

@@ -16,6 +16,8 @@ Every successful mission must:
 
 The broker rejects incomplete MCP sequences. The agent cannot substitute another MCP endpoint or send an arbitrary GraphQL URL.
 
+For Aave V3 and Morpho Blue comparisons on Base, the broker supplies verified core-contract hints from the official [Aave address book](https://github.com/aave-dao/aave-address-book/blob/main/src/AaveV3Base.sol) and [Morpho address registry](https://docs.morpho.org/developers/contracts/addresses/). MCP uses `get_top_subgraph_deployments` for both contracts, checks every candidate's 30-day activity, and refuses to compare the protocols unless two focused live queries use distinct identifiers.
+
 ## First-party Subgraph
 
 - Studio: `https://thegraph.com/studio/subgraph/ledger-agent`
