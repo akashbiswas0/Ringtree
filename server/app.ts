@@ -49,6 +49,7 @@ type Proposal = {
 };
 type GraphMission = {
   id: string;
+  owner?: string;
   question: string;
   status: "queued" | "running" | "completed" | "failed";
   createdAt: string;
@@ -201,7 +202,9 @@ export function createApp(
       manifests: store.all("manifest"),
       grants: grants(),
       proposals: proposals(),
-      graphMissions: graphMissions(),
+      graphMissions: graphMissions().filter((mission) =>
+        !!config?.owner && mission.owner?.toLowerCase() === config.owner.toLowerCase(),
+      ),
       events: store.events(),
     }),
   );
@@ -304,6 +307,7 @@ export function createApp(
     const createdAt = new Date().toISOString();
     const mission: GraphMission = {
       id: id(),
+      owner: config!.owner,
       question,
       status: "queued",
       createdAt,

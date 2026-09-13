@@ -24,7 +24,7 @@ export default function Landing() {
           <h1 id="landing-title">Autonomy.<br />In your hands.</h1>
           <p className="landing-description">
             Give your agents room to work.<br />
-            Keep control with Ledger Flex.
+            Keep control with Ledger.
           </p>
         </div>
         <div className="landing-art">

@@ -19,7 +19,7 @@ import {
   type SignerEth,
   type TypedData,
 } from "@ledgerhq/device-signer-kit-ethereum";
-import { firstValueFrom, filter, map, tap, timeout, take } from "rxjs";
+import { firstValueFrom, filter, map, tap, timeout, take, type Subscription } from "rxjs";
 import { Signature, getBytes, verifyMessage } from "ethers";
 import { ownerApprovalText } from "../shared/owner-approval";
 import { DERIVATION_PATH } from "../shared/protocol";
@@ -30,8 +30,9 @@ export class LedgerController {
   private session?: string;
   private signer?: SignerEth;
   private busy = false;
+  private connectionMonitor?: Subscription;
   address?: string;
-  constructor(private status: (s: string) => void) {}
+  constructor(private status: (s: string) => void, private onDisconnect?: () => void) {}
   private async action<T, E, I>(
     action: ExecuteDeviceActionReturnType<T, E, I>,
   ): Promise<T> {
@@ -98,6 +99,8 @@ export class LedgerController {
     if (state.deviceStatus === DeviceStatus.NOT_CONNECTED) {
       this.session = undefined;
       this.signer = undefined;
+      this.address = undefined;
+      this.onDisconnect?.();
       throw new Error("Ledger disconnected. Reconnect it.");
     }
     if (
@@ -142,6 +145,25 @@ export class LedgerController {
           sessionRefresherOptions: { isRefresherDisabled: false },
         });
       }
+      this.connectionMonitor?.unsubscribe();
+      this.connectionMonitor = this.dmk.getDeviceSessionState({ sessionId: this.session }).subscribe({
+        next: (state) => {
+          if (state.deviceStatus === DeviceStatus.NOT_CONNECTED) {
+            this.address = undefined;
+            this.session = undefined;
+            this.signer = undefined;
+            this.onDisconnect?.();
+            this.status("Ledger disconnected. Reconnect to continue.");
+          }
+        },
+        error: () => {
+          this.address = undefined;
+          this.session = undefined;
+          this.signer = undefined;
+          this.onDisconnect?.();
+          this.status("Ledger connection lost. Reconnect to continue.");
+        },
+      });
       await this.ready();
       this.signer = new SignerEthBuilder({
         dmk: this.dmk,
@@ -203,6 +225,9 @@ export class LedgerController {
     }
   }
   async disconnect() {
+    this.connectionMonitor?.unsubscribe();
+    this.connectionMonitor = undefined;
+    this.onDisconnect?.();
     if (this.session)
       await this.dmk?.disconnect({ sessionId: this.session }).catch(() => {});
     this.session = undefined;

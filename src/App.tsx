@@ -68,6 +68,7 @@ type State = {
   proposals: Proposal[];
   graphMissions: Array<{
     id: string;
+    owner?: string;
     question: string;
     status: "queued" | "running" | "completed" | "failed";
     createdAt: string;
@@ -166,6 +167,7 @@ async function api(path: string, body?: unknown) {
   const r = await fetch("/api/" + path, {
     method: body ? "POST" : "GET",
     cache: "no-store",
+    ...(path === "state" ? { signal: AbortSignal.timeout(5000) } : {}),
     headers: { "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
   });
@@ -191,6 +193,8 @@ export default function App() {
   );
   const [error, setError] = useState("");
   const [address, setAddress] = useState("");
+  const [brokerOnline, setBrokerOnline] = useState(false);
+  const [brokerError, setBrokerError] = useState("");
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState("Workspace");
   const [graphQuestion, setGraphQuestion] = useState("");
@@ -200,28 +204,44 @@ export default function App() {
   useEffect(() => {
     mounted.current = true;
     let aborted = false;
-    const refresh = async () => {
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
       try {
         const s = await api("state");
-        if (!aborted) setState(s);
+        if (!aborted) {
+          setState(s);
+          setBrokerOnline(true);
+          setBrokerError("");
+        }
       } catch {
-        if (!aborted)
-          setError(
-            "Broker unavailable. Start it with npm run setup -- serve, then retry.",
-          );
+        if (!aborted) {
+          setBrokerOnline(false);
+          setBrokerError("Broker offline. Run npm run setup -- serve to reconnect.");
+        }
+      } finally {
+        if (!aborted) timer = setTimeout(poll, 2500);
       }
     };
-    void refresh();
-    const timer = setInterval(refresh, 2500);
+    void poll();
     return () => {
       mounted.current = false;
       aborted = true;
-      clearInterval(timer);
+      clearTimeout(timer);
       void controller.current?.disconnect();
     };
   }, []);
   async function refresh() {
-    setState(await api("state"));
+    try {
+      const next = await api("state");
+      if (!mounted.current) return;
+      setState(next);
+      setBrokerOnline(true);
+      setBrokerError("");
+    } catch {
+      if (!mounted.current) return;
+      setBrokerOnline(false);
+      setBrokerError("Broker offline. Run npm run setup -- serve to reconnect.");
+    }
   }
   async function perform(action: () => Promise<void>) {
     if (busy) return;
@@ -237,7 +257,9 @@ export default function App() {
     }
   }
   function ledger() {
-    controller.current ??= new LedgerController(setNotice);
+    controller.current ??= new LedgerController(setNotice, () => {
+      if (mounted.current) setAddress("");
+    });
     return controller.current;
   }
   function owner() {
@@ -367,10 +389,11 @@ export default function App() {
     setGraphSubmitting(true);
     setError("");
     try {
+      owner();
       await api("graph/missions", { question });
       setGraphQuestion("");
       setNotice(
-        "Graph mission queued. The agent will discover an active Subgraph, verify usage, inspect its schema, and query live data.",
+        "Mission queued.",
       );
       await refresh();
     } catch (e) {
@@ -414,8 +437,150 @@ export default function App() {
       return true;
     });
   })();
+  const connectedOwner = !!address && !!state?.owner &&
+    address.toLowerCase() === state.owner.toLowerCase();
+  const visibleMissions = connectedOwner
+    ? (state?.graphMissions ?? []).filter((mission) =>
+        mission.owner?.toLowerCase() === address.toLowerCase())
+    : [];
   const activeRoots = active.filter((record) => record.grant.parentId === ROOT);
   const activeDelegated = active.length - activeRoots.length;
+  const actionableProposals = (state?.proposals ?? []).filter((proposal) =>
+    proposal.expiresAt > now() && (proposal.status === "pending" ||
+      proposal.status === "approved" || (proposal.status === "signed" && state?.allowBroadcast)));
+  const pastProposals = (state?.proposals ?? []).filter((proposal) =>
+    !actionableProposals.includes(proposal));
+  function renderApproval(p: Proposal) {
+    if (!state) return null;
+                    const tx = Transaction.from(p.raw);
+                    const reward =
+                      p.kind === "graph-agent-reward" && state.paymentAddress
+                        ? graphRewardDetails(p.raw, state.paymentAddress)
+                        : undefined;
+                    return (
+                      <article className="panel approval-card" key={p.id}>
+                        <div className="team-top">
+                          <h3>{reward ? "Graph Agent reward" : "Legacy transaction"}</h3>
+                          <span className="badge">
+                            {p.expiresAt <= now() && ["pending", "approved", "signed"].includes(p.status) ? "Expired" : p.status}
+                          </span>
+                        </div>
+                        <dl className="approval-summary">
+                          <dt>Amount</dt>
+                          <dd className="mono tabular-nums">{reward ? GRAPH_REWARD_LABEL : `${tx.value.toString()} wei`}</dd>
+                          <dt>Recipient</dt>
+                          <dd className="mono">{reward?.recipient ?? tx.to}</dd>
+                          <dt>Network</dt>
+                          <dd>Base Sepolia</dd>
+                        </dl>
+                        <details className="approval-details">
+                          <summary>Transaction details<ChevronDown size={16} aria-hidden /></summary>
+                        <dl>
+                          <dt>Network</dt>
+                          <dd>Base Sepolia</dd>
+                          <dt>Token contract</dt>
+                          <dd className="mono">{reward ? BASE_SEPOLIA_USDC : tx.to}</dd>
+                          <dt>Recipient</dt>
+                          <dd className="mono">{reward?.recipient ?? tx.to}</dd>
+                          <dt>Amount</dt>
+                          <dd className="mono tabular-nums">{reward ? GRAPH_REWARD_LABEL : "Legacy"}</dd>
+                          <dt>Mission</dt>
+                          <dd className="mono">{p.missionId ?? "Not linked"}</dd>
+                          <dt>Nonce</dt>
+                          <dd>{tx.nonce}</dd>
+                          <dt>Gas limit</dt>
+                          <dd>{tx.gasLimit.toString()}</dd>
+                          <dt>Max fee / gas</dt>
+                          <dd>{tx.maxFeePerGas?.toString()} wei</dd>
+                          <dt>Approval expiry</dt>
+                          <dd>
+                            {new Date(p.expiresAt * 1000).toLocaleTimeString()}
+                          </dd>
+                          <dt>Payload digest</dt>
+                          <dd className="mono">{p.digest}</dd>
+                        </dl>
+                        </details>
+                        <div className="team-actions">
+                          {p.status === "pending" && p.expiresAt > now() && (
+                            <>
+                              <button
+                                disabled={
+                                  busy || !address || p.expiresAt <= now()
+                                }
+                                onClick={() =>
+                                  perform(() =>
+                                    state.allowBroadcast
+                                      ? sign(p)
+                                      : decide(p, "approve"),
+                                  )
+                                }
+                              >
+                                {state.allowBroadcast
+                                  ? "Sign & send on Flex"
+                                  : "Approve on Flex"}
+                              </button>
+                              <button
+                                className="secondary"
+                                disabled={busy || !address}
+                                onClick={() =>
+                                  perform(() => decide(p, "reject"))
+                                }
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+                          {p.status === "approved" && p.expiresAt > now() && (
+                            <button
+                              disabled={
+                                busy || !address || p.expiresAt <= now()
+                              }
+                              onClick={() => perform(() => sign(p))}
+                            >
+                              {state.allowBroadcast
+                                ? "Sign & send on Flex"
+                                : "Sign on Flex"}
+                            </button>
+                          )}
+                          {p.status === "signed" && p.expiresAt > now() && state.allowBroadcast && (
+                            <button
+                              disabled={busy || p.expiresAt <= now()}
+                              onClick={() =>
+                                perform(async () => {
+                                  await api("broadcast", { requestId: p.id });
+                                  setNotice(
+                                    "Signed transaction submitted to Base Sepolia.",
+                                  );
+                                })
+                              }
+                            >
+                              Resume broadcast
+                            </button>
+                          )}
+                          {p.hash && p.status !== "broadcast" && (
+                            <p className="footnote">
+                              {p.expiresAt <= now()
+                                ? "Expired. This transaction was not broadcast."
+                                : "Not broadcast. Resume submission before expiry."}{" "}
+                              Transaction hash: <span className="mono">{p.hash}</span>
+                            </p>
+                          )}
+                          {p.hash && p.status === "broadcast" && (
+                            <a
+                              className="button secondary"
+                              href={"https://sepolia.basescan.org/tx/" + p.hash}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              View transaction
+                              <ArrowUpRight size={14} aria-hidden />
+                            </a>
+                          )}
+                        </div>
+                      </article>
+                    );
+
+  }
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -447,17 +612,10 @@ export default function App() {
             </button>
           ))}
         </nav>
-        <div className="sidebar-bottom">
-          <div className="status-dot" />
-          Ledger Agent Stack<p>Owner authority stays on your Flex.</p>
-          <span className="mono">BASE SEPOLIA · 84532</span>
-        </div>
       </aside>
       <main>
         <header className="topbar">
-          <span>
-            RingTree / <strong>{tab}</strong>
-          </span>
+          <span>{tab !== "Graph Agent" && <>RingTree / <strong>{tab}</strong></>}</span>
           <button
             disabled={busy}
             onClick={() =>
@@ -480,41 +638,45 @@ export default function App() {
         </header>
         <section className="intro">
           <div>
-            {tab !== "Workspace" && <p className="eyebrow">AUTHORITY, BRANCHING SAFELY</p>}
+            {tab === "Activity" && <p className="eyebrow">AUTHORITY, BRANCHING SAFELY</p>}
             <h1>
               {tab === "Workspace"
                 ? "Workspace"
                 : tab === "Graph Agent"
-                  ? "Ask live blockchain data."
+                  ? "Graph Agent"
                 : tab === "Approvals"
-                  ? "Your decision comes next."
+                  ? "Approvals"
                   : "A record of every boundary."}
             </h1>
             <p className="subtitle">
               {tab === "Workspace"
                 ? "Manage your agents and permissions."
                 : tab === "Graph Agent"
-                  ? "Discover active Subgraphs, inspect their schemas, query live data, and return a verified answer."
+                  ? "Ask a question. Explore live blockchain data."
                 : tab === "Approvals"
-                  ? "Review the exact action before an agent gains permission to continue."
+                  ? "Review and approve agent payments."
                   : "Inspect real broker decisions, completed calls, and denied requests."}
             </p>
           </div>
-          <div className="network">
-            <span className="status-dot" />
-            {tab === "Graph Agent"
-              ? "AWS agent · Local Graph broker"
-              : "Local broker · Base Sepolia"}
+          <div className="connection-status" role="status" aria-live="polite">
+            <span className="network">
+              <span className={`status-dot ${brokerOnline ? "connected" : "disconnected"}`} aria-hidden />
+              Broker {brokerOnline ? "online" : "offline"}
+            </span>
+            <span className="network">
+              <span className={`status-dot ${address ? "connected" : "disconnected"}`} aria-hidden />
+              Ledger {address ? "connected" : "disconnected"}
+            </span>
           </div>
         </section>
-        <div className="notice" role="status" aria-live="polite">
+        {(tab !== "Graph Agent" || notice !== "Connect Ledger Flex to authorize your agent team.") && <div className="notice" role="status" aria-live="polite">
           <ShieldCheck size={18} aria-hidden />
           <span>{notice}</span>
-        </div>
-        {tab !== "Workspace" && (<p className="subtitle">Owner approvals use readable messages. Review every field on Flex; reject blind-signing or hash-only screens. Transactions require a separate signature.</p>)}
-        {error && (
+        </div>}
+        {tab === "Approvals" && <p className="approval-guidance">Verify the amount and recipient on your Ledger before signing.</p>}
+        {(error || brokerError) && (
           <div className="error" role="alert">
-            {error}
+            {error || brokerError}
             <button
               onClick={() =>
                 perform(async () => {
@@ -786,12 +948,11 @@ export default function App() {
             )}
             {tab === "Graph Agent" && (
               <>
-                <div className="columns graph-layout">
+                <div className="graph-composer">
                   <section className="panel">
                     <div className="panel-head">
                       <div>
-                        <p className="eyebrow">LIVE SUBGRAPH MCP</p>
-                        <h2>New Graph mission</h2>
+                        <h2>New mission</h2>
                       </div>
                       <span className={state.graphReady ? "badge good" : "badge"}>
                         {!state.graphConfigured
@@ -809,15 +970,20 @@ export default function App() {
                         id="graph-question"
                         value={graphQuestion}
                         onChange={(event) => setGraphQuestion(event.target.value)}
-                        placeholder="Compare Aave and Morpho lending activity over the same 24-hour window. Include TVL, utilization, rates, liquidations and limitations."
+                        placeholder="Compare Aave and Morpho lending activity over the last 24 hours."
                         maxLength={600}
                         rows={5}
                         aria-describedby="graph-question-help"
                       />
                       <div className="form-help" id="graph-question-help">
-                        <span>The answer must use a focused live query.</span>
+                        <span>8–600 characters</span>
                         <span>{graphQuestion.length}/600</span>
                       </div>
+                      {!connectedOwner && (
+                        <p className="inline-warning">{address
+                          ? "Connect the Ledger registered to this workspace."
+                          : "Connect your Ledger to start a mission."}</p>
+                      )}
                       {!state.graphConfigured && (
                         <p className="inline-warning">
                           Configure the Gateway key with <code>npm run setup -- graph-secret</code>.
@@ -837,6 +1003,7 @@ export default function App() {
                         type="submit"
                         disabled={
                           graphSubmitting ||
+                          !connectedOwner ||
                           graphQuestion.trim().length < 8 ||
                           !state.graphReady ||
                           !active.some((item) => item.grant.tools.includes("graph.answer"))
@@ -848,37 +1015,22 @@ export default function App() {
                       </button>
                     </form>
                   </section>
-                  <aside>
-                    <section className="panel">
-                      <h2>Required live workflow</h2>
-                      <ol className="workflow">
-                        <li>Discover relevant Subgraphs</li>
-                        <li>Verify 30-day query activity</li>
-                        <li>Inspect the selected schema</li>
-                        <li>Align metrics and time windows</li>
-                        <li>Run one live query per protocol</li>
-                        <li>Explain facts, risks and limitations</li>
-                      </ol>
-                      <p className="footnote">
-                        Graph and OpenAI keys are decrypted only inside the broker through wallet-cli ring.
-                      </p>
-                    </section>
-                  </aside>
+
                 </div>
                 <section className="panel">
                   <div className="panel-head">
                     <h2>Mission history</h2>
-                    <span className="badge">{state.graphMissions?.length ?? 0} missions</span>
+                    <span className="badge">{visibleMissions.length} missions</span>
                   </div>
-                  {!state.graphMissions?.length ? (
+                  {!visibleMissions.length ? (
                     <div className="empty graph-empty">
                       <Database size={32} aria-hidden />
-                      <h3>No Graph missions yet</h3>
-                      <p>Ask a specific protocol, market, wallet, or governance question to begin.</p>
+                      <h3>{!address ? "Connect your Ledger" : !connectedOwner ? "Different Ledger connected" : "No missions yet"}</h3>
+                      <p>{!connectedOwner ? "Mission history is shown for the connected workspace owner." : "Your missions will appear here."}</p>
                     </div>
                   ) : (
                     <div className="mission-list">
-                      {[...state.graphMissions].reverse().map((mission) => (
+                      {[...visibleMissions].reverse().map((mission) => (
                         <article className="mission" key={mission.id}>
                           <div className="team-top">
                             <h3>{mission.question}</h3>
@@ -906,6 +1058,8 @@ export default function App() {
                           {mission.result?.text && (
                             <div className="mission-result">
                               <p>{mission.result.text}</p>
+                              <details className="mission-diagnostics">
+                                <summary>Sources & query details</summary>
                               <div className="tags" aria-label="MCP tools used">
                                 {mission.result.mcpCalls?.map((call, index) => (
                                   <span key={call.name + "-" + index}>{call.name}</span>
@@ -1035,6 +1189,7 @@ export default function App() {
                                     ))}
                                 </details>
                               )}
+                              </details>
                             </div>
                           )}
                           {mission.rewardStatus && (
@@ -1064,147 +1219,34 @@ export default function App() {
               </>
             )}
             {tab === "Approvals" && (
-              <section className="panel">
+              <section className="approvals-page">
                 <div className="panel-head">
-                  <h2>Action queue</h2>
+                  <h2>Awaiting approval <span className="approval-count">{actionableProposals.length}</span></h2>
                   <span className="badge">
                     {state.allowBroadcast
-                      ? "Testnet broadcast enabled"
+                      ? "Testnet · Sign & send"
                       : "Sign only"}
                   </span>
                 </div>
                 {state.allowBroadcast && (
                   <p className="broadcast-warning" role="status">
-                    Broadcasting is enabled. Signing a pending reward submits it to Base Sepolia immediately.
+                    Signing sends the transaction to Base Sepolia.
                   </p>
                 )}
-                {!state.proposals.length ? (
+                {!actionableProposals.length ? (
                   <div className="empty">
                     <ShieldCheck size={32} aria-hidden />
                     <h3>No pending actions</h3>
-                    <p>
-                      The executor queues one fixed reward after a Graph mission completes.
-                    </p>
+
                   </div>
                 ) : (
-                  state.proposals.map((p) => {
-                    const tx = Transaction.from(p.raw);
-                    const reward =
-                      p.kind === "graph-agent-reward" && state.paymentAddress
-                        ? graphRewardDetails(p.raw, state.paymentAddress)
-                        : undefined;
-                    return (
-                      <article className="proposal" key={p.id}>
-                        <div className="team-top">
-                          <h3>{reward ? "Graph Agent mission reward" : "Legacy transaction"}</h3>
-                          <span className="badge">
-                            {p.expiresAt <= now() ? "Expired" : p.status}
-                          </span>
-                        </div>
-                        <dl>
-                          <dt>Network</dt>
-                          <dd>Base Sepolia</dd>
-                          <dt>Token contract</dt>
-                          <dd className="mono">{reward ? BASE_SEPOLIA_USDC : tx.to}</dd>
-                          <dt>Recipient</dt>
-                          <dd className="mono">{reward?.recipient ?? tx.to}</dd>
-                          <dt>Amount</dt>
-                          <dd className="mono tabular-nums">{reward ? GRAPH_REWARD_LABEL : "Legacy"}</dd>
-                          <dt>Mission</dt>
-                          <dd className="mono">{p.missionId ?? "Not linked"}</dd>
-                          <dt>Nonce</dt>
-                          <dd>{tx.nonce}</dd>
-                          <dt>Gas limit</dt>
-                          <dd>{tx.gasLimit.toString()}</dd>
-                          <dt>Max fee / gas</dt>
-                          <dd>{tx.maxFeePerGas?.toString()} wei</dd>
-                          <dt>Approval expiry</dt>
-                          <dd>
-                            {new Date(p.expiresAt * 1000).toLocaleTimeString()}
-                          </dd>
-                          <dt>Payload digest</dt>
-                          <dd className="mono">{p.digest}</dd>
-                        </dl>
-                        <div className="team-actions">
-                          {p.status === "pending" && (
-                            <>
-                              <button
-                                disabled={
-                                  busy || !address || p.expiresAt <= now()
-                                }
-                                onClick={() =>
-                                  perform(() =>
-                                    state.allowBroadcast
-                                      ? sign(p)
-                                      : decide(p, "approve"),
-                                  )
-                                }
-                              >
-                                {state.allowBroadcast
-                                  ? "Review, sign and broadcast on Flex"
-                                  : "Approve action on Flex"}
-                              </button>
-                              <button
-                                className="secondary"
-                                disabled={busy || !address}
-                                onClick={() =>
-                                  perform(() => decide(p, "reject"))
-                                }
-                              >
-                                Reject
-                              </button>
-                            </>
-                          )}
-                          {p.status === "approved" && (
-                            <button
-                              disabled={
-                                busy || !address || p.expiresAt <= now()
-                              }
-                              onClick={() => perform(() => sign(p))}
-                            >
-                              {state.allowBroadcast
-                                ? "Review, sign and broadcast on Flex"
-                                : "Sign transaction on Flex"}
-                            </button>
-                          )}
-                          {p.status === "signed" && state.allowBroadcast && (
-                            <button
-                              disabled={busy || p.expiresAt <= now()}
-                              onClick={() =>
-                                perform(async () => {
-                                  await api("broadcast", { requestId: p.id });
-                                  setNotice(
-                                    "Signed transaction submitted to Base Sepolia.",
-                                  );
-                                })
-                              }
-                            >
-                              Resume Base Sepolia broadcast
-                            </button>
-                          )}
-                          {p.hash && p.status !== "broadcast" && (
-                            <p className="footnote">
-                              {p.expiresAt <= now()
-                                ? "Expired signed transaction—not broadcast. It is retained for audit history and cannot be submitted."
-                                : "Submission was interrupted. The verified signature is retained; use Resume Base Sepolia broadcast."}{" "}
-                              Transaction hash: <span className="mono">{p.hash}</span>
-                            </p>
-                          )}
-                          {p.hash && p.status === "broadcast" && (
-                            <a
-                              className="button secondary"
-                              href={"https://sepolia.basescan.org/tx/" + p.hash}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              View submitted transaction
-                              <ArrowUpRight size={14} aria-hidden />
-                            </a>
-                          )}
-                        </div>
-                      </article>
-                    );
-                  })
+                  actionableProposals.map(renderApproval)
+                )}
+                {pastProposals.length > 0 && (
+                  <details className="approval-history">
+                    <summary>Past actions <span className="approval-count">{pastProposals.length}</span><ChevronDown size={18} aria-hidden /></summary>
+                    {[...pastProposals].reverse().map(renderApproval)}
+                  </details>
                 )}
               </section>
             )}
@@ -1261,7 +1303,7 @@ export default function App() {
             )}
           </>
         )}
-        {tab !== "Workspace" && <footer>
+        {tab === "Activity" && <footer>
           <span>RingTree MVP · Ledger DMK + wallet-cli ring</span>
           <span>
             Ledger approval stays local; AWS agents receive capabilities, never

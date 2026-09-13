@@ -13,6 +13,23 @@ import {
 } from "../shared/payment";
 
 // Test-only transport substitute. Production always uses Ledger DMK/WebHID.
+it("clears the connected address and notifies the UI when hardware is disconnected", async () => {
+  const onDisconnect = vi.fn();
+  const c = new LedgerController(vi.fn(), onDisconnect);
+  const signMessage = vi.fn();
+  Object.assign(c, {
+    address: Wallet.createRandom().address,
+    session: "test-only",
+    signer: { signMessage },
+    dmk: { getDeviceSessionState: () => of({ deviceStatus: DeviceStatus.NOT_CONNECTED }) },
+  });
+  const f = fixture();
+  await expect(c.signPermission(f.data)).rejects.toThrow("Ledger disconnected");
+  expect(c.address).toBeUndefined();
+  expect(onDisconnect).toHaveBeenCalledOnce();
+  expect(signMessage).not.toHaveBeenCalled();
+});
+
 function fixture() {
   const w = Wallet.createRandom();
   const data = { domain: domain(hexlify(randomBytes(32))), types: structuredClone(hostTypes), primaryType: "HostEnrollment", message: { hostId: w.address, label: "Test host", action: "enroll", expiresAt: 1900000000, nonce: hexlify(randomBytes(32)) } };

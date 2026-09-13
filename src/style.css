@@ -222,6 +222,12 @@ h1 {
   border-radius: 30px;
   padding: 9px 12px;
 }
+
+.connection-status { display: flex; flex-wrap: wrap; gap: 8px; }
+.connection-status .network { display: inline-flex; align-items: center; gap: 8px; }
+.connection-status .status-dot { margin: 0; }
+.status-dot.connected { background: var(--accent); }
+.status-dot.disconnected { background: var(--danger); }
 .notice {
   background: var(--soft);
   border: 1px solid var(--border);
@@ -556,6 +562,17 @@ code.block {
 .graph-layout {
   grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.7fr);
 }
+
+.mission-diagnostics > summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: list-item;
+  align-content: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.mission-diagnostics[open] > summary { margin-bottom: 12px; }
 .graph-form {
   display: grid;
   gap: 12px;
@@ -737,6 +754,32 @@ code.block {
   padding: 22px 0;
   border-top: 1px solid var(--border);
 }
+
+.approval-card { padding: 24px; margin-bottom: 16px; }
+.approval-card .team-top { margin-bottom: 20px; }
+.approval-card .team-actions { margin-top: 20px; }
+.approval-card .team-actions:empty { display: none; }
+.approval-summary { margin: 0 0 16px; }
+.approval-count { color: var(--muted); font-size: 12px; font-weight: 400; margin-left: 8px; }
+.approval-guidance { font-size: 12px; color: var(--muted); margin: 0 0 24px; }
+.approval-details > summary,
+.approval-history > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 13px;
+  color: var(--muted);
+}
+.approval-details > summary::-webkit-details-marker,
+.approval-history > summary::-webkit-details-marker { display: none; }
+.approval-details[open] > summary svg,
+.approval-history[open] > summary svg { transform: rotate(180deg); }
+.approval-history { margin-top: 32px; border-top: 1px solid var(--border); padding-top: 12px; }
+.approval-history > summary { margin-bottom: 12px; }
+.approvals-page > .empty { border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
 dl {
   display: grid;
   grid-template-columns: 140px minmax(0, 1fr);

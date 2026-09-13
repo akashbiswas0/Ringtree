@@ -171,6 +171,26 @@ async function rewardProposal(f: Fixture) {
   ).body.proposal;
 }
 describe("HTTP enforcement and high-risk transaction lifecycle", () => {
+  it("records the configured owner and excludes other owners and unassigned missions from UI history", async () => {
+    const f = await fixture();
+    const mission = await queueMission(f);
+    expect(mission.owner).toBe(f.owner.address);
+    const otherId = id();
+    f.store.put("graph-mission", otherId, {
+      ...mission, id: otherId, owner: Wallet.createRandom().address,
+    });
+    const legacyId = id();
+    const { owner: _owner, ...legacy } = mission;
+    f.store.put("graph-mission", legacyId, { ...legacy, id: legacyId });
+    // Address casing does not change ownership.
+    f.store.put("graph-mission", mission.id, {
+      ...mission, owner: f.owner.address.toLowerCase(),
+    });
+    const state = await request(f.app).get("/api/state").set("Host", "localhost:4318");
+    expect(state.status).toBe(200);
+    expect(state.body.graphMissions.map((item: { id: string }) => item.id)).toEqual([mission.id]);
+    expect(f.store.all("graph-mission")).toHaveLength(3);
+  });
   it("queues a natural-language Graph mission and completes it through a signed capability call", async () => {
     const f = await fixture();
     const queued = await f.post("graph/missions", {

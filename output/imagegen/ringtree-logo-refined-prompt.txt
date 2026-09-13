@@ -1,0 +1,8 @@
+Use case: logo-brand
+Asset type: RingTree application logo, square icon.
+Primary request: Refine the supplied minimal branching logo, preserving its identity. Two hollow circular endpoints connected by a gently curving branch from a short upright stem. Preserve the reference topology: lower-left circular root, vertical stem continuing upward with rounded cap, rightward curved branch ending in upper-right circle.
+Input images: Image 1 is the edit target and visual reference.
+Style: Extremely minimal flat geometric mark, precise consistent strokes, two equal circular rings, smooth tangent joins, rounded cap. Optically balanced and readable at small sizes.
+Color palette: Preserve muted sage green mark and very dark forest green solid background from reference.
+Composition: Single centered mark, occupying about 48 percent of square canvas width; generous even negative space.
+Constraints: Refine only geometry, optical balance, and rendering quality. Keep two rings and one branching stem. No extra branches, leaves, letters, text, shadows, gradients, texture, border, mockup, or watermark.
