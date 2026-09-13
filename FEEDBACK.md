@@ -1,36 +1,34 @@
 # Ledger Agent Stack developer feedback
 
-RingTree uses Ledger Flex, DMK/WebHID, the Ethereum signer, and the official `wallet-cli ring` CLI. The final architecture keeps Key Ring and the broker local while credential-free agents run on AWS.
+RingTree uses Ledger Flex, DMK/WebHID, the Ethereum signer kit, and the official `wallet-cli ring` CLI. The trusted broker and Key Ring remain on the owner's computer, while credential-free agents run on a remote VPS with signed, scoped capabilities.
 
 ## What worked well
 
-- DMK cleanly separates device transport/session handling from Ethereum signing.
-- `signMessage` supports readable, versioned permission approvals containing scope, expiry, nonce, and broker identity.
-- `wallet-cli ring encrypt/decrypt` is a small, scriptable boundary for API and payment credentials.
-- Named Key Ring entries make it practical to separate OpenAI, Graph, and agent-payment secrets.
+- DMK cleanly separates device discovery and session management from Ethereum signing.
+- `signMessage` supports readable, versioned approvals containing scope, expiry, nonce, and broker identity.
+- `wallet-cli ring encrypt/decrypt` provides a small, scriptable boundary for API and payment credentials.
+- Named Key Ring entries make it practical to isolate the OpenAI, The Graph, and agent-payment secrets.
 
-## Friction and suggested improvements
+## Ledger Flex became stuck during testing
 
-### Password input
+During physical-device testing, Ledger Flex became stuck while the Ethereum app was open. The screen displayed repeated, garbled characters and the device appeared unresponsive in this state. I do not know whether the cause was the device firmware, Ethereum app, USB/WebHID transport, or DMK, so I raised a request with official Ledger Support for investigation.
 
-Shell environment variables are easy to leak through history or process inspection. RingTree therefore keeps the password out of its long-running broker environment and sets `WALLET_PASS` only on short-lived CLI children. First-class `--password-stdin` or OS-keychain reference support would remove even that remaining exposure and simplify a documented password-change flow.
+![Ledger Flex showing a garbled Ethereum app screen during testing](docs/images/ledger-flex-stuck.png)
 
-### Headless/no-USB guidance
+A documented diagnostic and recovery flow for unexpected device-app states would help. It should explain which firmware, app, transport, and DMK version details to collect; which logs are safe to share; and when to disconnect, quit the app, or restart the device.
 
-The track highlights VPS and CI hosts, but the public CLI flow is much clearer for a USB-connected local machine than for safely extending Key Ring to a no-USB host. Publish an official, end-to-end VPS/CI architecture with precise membership, revocation, and rotation guarantees.
+## Remote-agent guidance
 
-### Capability-broker reference
+The public flow is clear for a USB-connected local machine, but a secure architecture for agents on a VPS or CI host requires more design work. An official end-to-end reference showing how to keep credentials local, expose only scoped capabilities, and handle Key Ring membership, revocation, and rotation would help teams avoid treating broad decryption access as agent authorization.
 
-Key Ring membership is a broad decryption boundary, while an agent capability should be narrow and revocable. A reference broker showing “credential stays here; agent receives only an allowed result” would prevent teams from conflating these layers.
+## Password handling and diagnostics
 
-### Device-display guarantees
+For non-interactive use, `wallet-cli ring` reads its password from `WALLET_PASS`. RingTree limits that exposure to short-lived CLI child processes and removes the value from the long-running broker environment. Native OS-keychain references would reduce this remaining process-environment exposure.
 
-Software can detect some fallback states but cannot prove what the user saw on the physical screen. Document what DMK can assert, what must be visually verified, and the recommended fail-closed behavior for blind or hash-only displays.
+A Ring-specific diagnostic command could safely check profile configuration, OS-keychain access, password acceptance, network reachability, and Key Ring backend status without printing plaintext or credentials.
 
-### Version compatibility
+## Compatibility and device-display guarantees
 
-DMK, signer kits, context modules, and `wallet-cli` evolve independently. Publish a tested Agent Stack compatibility matrix with known-good combinations and breaking changes.
+DMK, signer kits, context modules, device firmware, Ethereum app versions, and `wallet-cli` can evolve independently. A tested compatibility matrix with known-good combinations and breaking changes would make integration and incident diagnosis easier.
 
-### Diagnostics
-
-A non-secret `wallet-cli ring doctor` command could check profile selection, Key Ring reachability, password validity, local keychain support, and backend status without exposing plaintext.
+Software can detect some fallback states but cannot prove what the user saw on the physical device. The documentation should clearly separate what DMK can assert from what the user must visually verify, including recommended fail-closed behavior for blind-signing or hash-only displays.
