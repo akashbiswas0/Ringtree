@@ -1,7 +1,9 @@
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import App from "./App";
+import Landing from "./Landing";
 import "./style.css";
+const App = lazy(() => import("./App"));
+const isWorkspace = /^\/(workspace|app)\/?$/i.test(window.location.pathname);
 class Boundary extends React.Component<
   React.PropsWithChildren,
   { failed: boolean }
@@ -23,6 +25,10 @@ class Boundary extends React.Component<
 }
 createRoot(document.getElementById("root")!).render(
   <Boundary>
-    <App />
+    {isWorkspace ? (
+      <Suspense fallback={<main className="workspace-loading" role="status">Opening your workspace…</main>}>
+        <App />
+      </Suspense>
+    ) : <Landing />}
   </Boundary>,
 );

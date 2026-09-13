@@ -41,7 +41,12 @@ const tools = new LiveTools(
   paymentCredential,
 );
 const app = createApp(store, config, tools, secret);
-if (existsSync("dist")) app.use(express.static(resolve("dist")));
+if (existsSync("dist")) {
+  app.use(express.static(resolve("dist")));
+  app.get(["/workspace", "/app"], (_req, res) => {
+    res.sendFile(resolve("dist/index.html"));
+  });
+}
 const port = Number(process.env.RINGTREE_PORT ?? 4318);
 if (!Number.isInteger(port) || port < 1024 || port > 65535) throw Error("INVALID_PORT");
 app.listen(port, process.env.RINGTREE_LISTEN ?? "127.0.0.1", () =>

@@ -6,7 +6,7 @@ import {
   Server,
   ArrowDownRight,
   Activity,
-  LockKeyhole,
+  ChevronDown,
   Plug,
   ArrowUpRight,
   Check,
@@ -480,10 +480,10 @@ export default function App() {
         </header>
         <section className="intro">
           <div>
-            <p className="eyebrow">AUTHORITY, BRANCHING SAFELY</p>
+            {tab !== "Workspace" && <p className="eyebrow">AUTHORITY, BRANCHING SAFELY</p>}
             <h1>
               {tab === "Workspace"
-                ? "One approval. Clear boundaries."
+                ? "Workspace"
                 : tab === "Graph Agent"
                   ? "Ask live blockchain data."
                 : tab === "Approvals"
@@ -492,7 +492,7 @@ export default function App() {
             </h1>
             <p className="subtitle">
               {tab === "Workspace"
-                ? "Let agents collaborate inside the permissions you sign. Each branch can only narrow its authority."
+                ? "Manage your agents and permissions."
                 : tab === "Graph Agent"
                   ? "Discover active Subgraphs, inspect their schemas, query live data, and return a verified answer."
                 : tab === "Approvals"
@@ -511,7 +511,7 @@ export default function App() {
           <ShieldCheck size={18} aria-hidden />
           <span>{notice}</span>
         </div>
-        <p className="subtitle">Owner approvals use readable messages. Review every field on Flex; reject blind-signing or hash-only screens. Transactions require a separate signature.</p>
+        {tab !== "Workspace" && (<p className="subtitle">Owner approvals use readable messages. Review every field on Flex; reject blind-signing or hash-only screens. Transactions require a separate signature.</p>)}
         {error && (
           <div className="error" role="alert">
             {error}
@@ -554,31 +554,30 @@ export default function App() {
                   <div>
                     <span>Active root grants</span>
                     <strong>{activeRoots.length}</strong>
-                    <small>{activeDelegated} narrower agent grants beneath them</small>
+                    <small>{activeDelegated} delegated grants</small>
                   </div>
                   <div>
                     <span>Waiting for you</span>
                     <strong>{pending.length}</strong>
-                    <small>Actions need a Ledger decision</small>
+                    <small>Pending approvals</small>
                   </div>
                   <div>
-                    <span>Credential backend</span>
-                    <strong className="metric-text">wallet-cli ring</strong>
+                    <span>Agent credentials</span>
+                    <strong className="metric-text">{state.ringReady ? "Ready" : state.ringConfigured ? "Locked" : "Not configured"}</strong>
                     <small>
                       {!state.ringConfigured
                         ? "OpenAI key setup pending"
                         : state.ringReady
-                          ? "Encrypted key present · broker unlocked"
-                          : "Encrypted key present · unlock broker"}
+                          ? "Broker unlocked"
+                          : "Unlock the broker to continue"}
                     </small>
                   </div>
                 </div>
-                <div className="columns">
+                <div className="columns workspace-columns">
                   <section className="panel">
                     <div className="panel-head">
                       <div>
-                        <p className="eyebrow">DELEGATION TREE</p>
-                        <h2>Your research team</h2>
+                        <h2>Agent team</h2>
                       </div>
                       <GitBranch aria-hidden />
                     </div>
@@ -733,12 +732,9 @@ export default function App() {
                       ))
                     )}
                   </section>
-                  <aside>
-                    <section className="panel">
-                      <div className="panel-head">
-                        <h2>Security boundaries</h2>
-                        <LockKeyhole aria-hidden />
-                      </div>
+                  <aside className="workspace-help" aria-label="Workspace guide">
+                    <details className="panel workspace-disclosure">
+                      <summary>Security boundaries<ChevronDown size={18} aria-hidden /></summary>
                       <ul className="check-list">
                         <li>
                           <Check aria-hidden />
@@ -769,9 +765,10 @@ export default function App() {
                         These controls are enforced by server code,
                         independently of model output.
                       </p>
-                    </section>
-                    <section className="panel">
-                      <h2>Live workflow</h2>
+                      <p className="footnote">Review every field on Flex. Reject blind-signing or hash-only screens. Transactions require a separate signature.</p>
+                    </details>
+                    <details className="panel workspace-disclosure">
+                      <summary>Live workflow<ChevronDown size={18} aria-hidden /></summary>
                       <ol className="workflow">
                         <li>Ask a natural-language Graph question</li>
                         <li>Query the live ledger-agent Subgraph</li>
@@ -782,7 +779,7 @@ export default function App() {
                       <p className="footnote">
                         x402 remains testnet-only and activates after the reward wallet is funded.
                       </p>
-                    </section>
+                    </details>
                   </aside>
                 </div>
               </>
@@ -1264,13 +1261,13 @@ export default function App() {
             )}
           </>
         )}
-        <footer>
+        {tab !== "Workspace" && <footer>
           <span>RingTree MVP · Ledger DMK + wallet-cli ring</span>
           <span>
             Ledger approval stays local; AWS agents receive capabilities, never
             credentials.
           </span>
-        </footer>
+        </footer>}
       </main>
     </div>
   );

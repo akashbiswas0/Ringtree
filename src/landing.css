@@ -1,0 +1,201 @@
+/* A single, quiet hero. Keep its styles separate from the working dashboard. */
+.landing {
+  --landing-paper: #f4f5f1;
+  --landing-ink: #202722;
+  --landing-muted: #606760;
+  --landing-gutter: clamp(24px, 5vw, 80px);
+  min-height: 100svh;
+  background: var(--landing-paper);
+  color: var(--landing-ink);
+  overflow: clip;
+  -webkit-font-smoothing: antialiased;
+}
+
+.landing-header {
+  max-width: 1600px;
+  height: 112px;
+  margin: 0 auto;
+  padding: 0 var(--landing-gutter);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.landing-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  color: inherit;
+  text-decoration: none;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -1px;
+}
+
+.landing-enter {
+  min-width: 132px;
+  min-height: 52px;
+  padding: 12px 24px;
+  border: 1px solid var(--landing-ink);
+  border-radius: 0;
+  color: inherit;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.landing-enter:hover {
+  background: var(--landing-ink);
+  color: var(--landing-paper);
+}
+
+.landing a:focus-visible {
+  outline: 2px solid var(--landing-ink);
+  outline-offset: 6px;
+}
+
+.landing-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  max-width: 1600px;
+  min-height: calc(100svh - 112px);
+  margin: 0 auto;
+  padding: 48px var(--landing-gutter) 80px;
+}
+
+.landing-copy {
+  position: relative;
+  z-index: 1;
+}
+
+.landing-eyebrow {
+  margin: 0 0 32px;
+  color: var(--landing-muted);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.landing-copy h1 {
+  margin: 0;
+  font-size: clamp(56px, 7.2vw, 112px);
+  font-weight: 500;
+  line-height: 1.02;
+  letter-spacing: -0.065em;
+}
+
+.landing-typewriter {
+  /* 25 monospace characters, each with the eyebrow's 1px letter spacing. */
+  --typewriter-distance: calc(25ch + 25px);
+  --typewriter-delay: 300ms;
+  --typewriter-duration: 1750ms;
+  --typewriter-blink: 700ms;
+  position: relative;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.landing-typewriter-text { display: block; }
+.landing-typewriter-cursor { display: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Mount: pause 300ms → type through 2050ms → cursor settles by 2800ms. */
+  .landing-typewriter-text {
+    animation: landing-type var(--typewriter-duration) steps(25, end)
+      var(--typewriter-delay) both;
+  }
+  .landing-typewriter-cursor {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0.15em;
+    width: 1px;
+    height: 1.1em;
+    background: currentColor;
+    animation:
+      landing-caret-move var(--typewriter-duration) steps(25, end)
+        var(--typewriter-delay) both,
+      landing-caret-blink var(--typewriter-blink) step-end 4 forwards;
+  }
+}
+
+@keyframes landing-type {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+@keyframes landing-caret-move {
+  from { transform: translateX(0); }
+  to { transform: translateX(var(--typewriter-distance)); }
+}
+
+@keyframes landing-caret-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+.landing-description {
+  margin: 32px 0 0;
+  color: var(--landing-muted);
+  font-size: clamp(19px, 1.55vw, 23px);
+  line-height: 1.6;
+}
+
+.landing-art {
+  position: absolute;
+  inset: 0 0 0 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.landing-art img {
+  display: block;
+  width: 145%;
+  max-width: none;
+  height: auto;
+  max-height: 100%;
+  object-fit: contain;
+  filter: grayscale(1);
+}
+
+@media (max-width: 900px) {
+  .landing-hero { grid-template-columns: 1.1fr 1fr; }
+  .landing-copy h1 { font-size: clamp(48px, 7.2vw, 68px); }
+  .landing-eyebrow { font-size: 12px; }
+}
+
+@media (max-width: 600px) {
+  .landing-header { height: 88px; }
+  .landing-brand { font-size: 25px; }
+  .landing-hero {
+    grid-template-columns: 1fr;
+    min-height: calc(100svh - 88px);
+    padding-top: 48px;
+    padding-bottom: 0;
+    gap: 32px;
+  }
+  .landing-copy h1 { font-size: clamp(44px, 13vw, 76px); }
+  .landing-eyebrow { margin-bottom: 24px; font-size: 11px; }
+  .landing-description { margin-top: 24px; font-size: 18px; }
+  .landing-art { position: static; align-self: stretch; }
+  .landing-art img { width: 135%; max-width: 640px; }
+}
+
+.workspace-loading {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--muted);
+}

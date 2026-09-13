@@ -284,6 +284,40 @@ h1 {
   gap: 20px;
   align-items: start;
 }
+
+.columns.workspace-columns {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.workspace-columns > .workspace-help {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+.workspace-disclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.panel.workspace-disclosure { padding: 12px 20px; margin-bottom: 0; }
+.workspace-disclosure[open] { padding-bottom: 20px; }
+.workspace-disclosure[open] > summary { margin-bottom: 20px; }
+
+.workspace-disclosure > summary::-webkit-details-marker { display: none; }
+.workspace-disclosure[open] > summary svg { transform: rotate(180deg); }
+
+@media (max-width: 600px) {
+  .workspace-columns > .workspace-help { grid-template-columns: 1fr; }
+}
 .panel {
   background: var(--card);
   border: 1px solid var(--border);
