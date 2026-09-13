@@ -2,7 +2,7 @@
 
 Open-source under the [MIT License](LICENSE), copyright 2026 RingTree.
 
-RingTree is a single-owner, Ledger-rooted control plane for agents running on an AWS VPS. The trusted broker stays on the owner's computer, where the official `wallet-cli ring` encrypts and decrypts the OpenAI key, The Graph key, and the Graph Agent payment key. AWS agents receive signed, scoped capabilities—not credentials.
+RingTree is a single-owner, Ledger-rooted control plane for agents running on an AWS VPS. The trusted broker stays on the owner's computer, where the official `wallet-cli ring` encrypts and decrypts the OpenAI key, The Graph key, and the Graph Agent payment key. AWS agents receive signed, scoped capabilities, not credentials.
 
 ## What is implemented
 
@@ -51,7 +51,7 @@ npm run setup -- payment-wallet
 RINGTREE_PORT=4321 npm run setup -- serve
 ```
 
-Use the existing Key Ring password; do not reinitialize a working ring. Setup reads secrets through hidden terminal prompts, verifies a public encrypt/decrypt probe before listening, and refuses to overwrite existing ciphertext. The password is held only in broker process memory—not its long-lived environment—and is passed only to short-lived `wallet-cli` subprocesses as required by the CLI.
+Use the existing Key Ring password; do not reinitialize a working ring. Setup reads secrets through hidden terminal prompts, verifies a public encrypt/decrypt probe before listening, and refuses to overwrite existing ciphertext. The password is held only in broker process memory, rather than its long-lived environment. It is passed only to short-lived `wallet-cli` subprocesses as required by the CLI.
 
 The dashboard is served by the broker at `http://localhost:4321`. Connect Flex, authorize the registered agent host, and sign a 30-minute root grant. Submit missions from the **Graph Agent** tab. A reward appears in **Approvals** only after a mission completes.
 
@@ -75,7 +75,7 @@ The connector defaults to local broker port `4321`. Override it with `RINGTREE_L
 
 ## Graph integration
 
-The first-party `ledger-agent` Subgraph indexes Circle Base Sepolia USDC transfers from block `46600000`, account totals, hourly/day snapshots, large transfers, whale activity, and global activity. The agent must also discover active Subgraphs through The Graph MCP, verify activity, inspect schemas, and execute live queries before returning an answer. It records exact query/identifier hashes, normalizes six-decimal USDC, and rejects explicit two-protocol comparisons unless both sources were queried.
+The first-party `ledger-agent` Subgraph indexes Circle Base Sepolia USDC transfers from block `46600000`, account totals, hourly/day snapshots, large transfers, whale activity, and global activity. The agent also discovers Subgraphs through The Graph MCP, checks activity, inspects schemas, and executes live queries before returning an answer. It records exact query and identifier hashes, normalizes six-decimal USDC, and explicitly reports when a two-protocol comparison lacks two accessible live sources.
 
 ## Security boundaries
 
@@ -114,4 +114,4 @@ npm run graph:build
 npm run graph:test
 ```
 
-Automated tests use disposable software wallets only inside `tests/`. They do not replace the physical-device and live-service evidence in the demo checklist.
+Automated tests use disposable software wallets only inside `tests/`. They do not replace physical-device and live-service verification.
