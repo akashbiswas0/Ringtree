@@ -2,7 +2,6 @@
   "name": "ringtree",
   "version": "0.1.0",
   "private": true,
-  "license": "MIT",
   "type": "module",
   "scripts": {
     "connect:aws": "tsx scripts/local-connector.ts",

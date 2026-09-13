@@ -1,6 +1,6 @@
 {
   "name": "ledger-agent",
-  "license": "MIT",
+  "license": "UNLICENSED",
   "scripts": {
     "codegen": "graph codegen",
     "build": "graph build",
