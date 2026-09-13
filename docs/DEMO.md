@@ -5,7 +5,7 @@
 1. Show the local broker status: all three encrypted credentials are present and unlocked through `wallet-cli ring`.
 2. Show AWS has no inbound ports and contains only a credential-free relay plus three isolated agent identities.
 3. Connect Ledger Flex, authorize the agent host if needed, and sign a readable 30-minute root grant.
-4. Compare two DeFi protocols. Show deterministic 24-hour USDC metrics, standardized-schema detection, both exact MCP queries, output hashes, and `x402: paid` against the published RingTree Subgraph.
+4. Compare two DeFi protocols. Show deterministic 24-hour USDC metrics, standardized-schema detection, both exact MCP queries, output hashes, and a separate `x402: paid` query against an allocated Graph testnet Subgraph.
 5. Review the separate `0.01 USDC` mission reward on Ledger and show its Base Sepolia transaction link.
 6. Revoke the root grant and show that a new descendant call fails while the audit log records the denial.
 

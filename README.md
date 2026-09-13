@@ -11,7 +11,7 @@ RingTree is a single-owner, Ledger-rooted control plane for agents running on an
 - A credential-free AWS relay reachable only through an authenticated SSM tunnel.
 - A minimal AWS agent-state response that omits owner UI, payment payloads, provider details, and audit history.
 - A Graph Agent using `gpt-5.6-terra`, the live RingTree Base Sepolia USDC Subgraph, and The Graph Subgraph MCP.
-- A separate Key Ring-protected payment wallet that pays for the published RingTree Subgraph's real USDC activity query through x402.
+- A separate Key Ring-protected payment wallet that pays for real identity/delegation data from an allocated Graph testnet Subgraph through x402.
 - Deterministic 24-hour USDC windows plus durable per-query, per-mission, and daily Graph spend controls.
 - One mission-linked `0.01 USDC` reward proposed only after a successful Graph mission and signed separately on Ledger.
 - Persistent SQLite mission history and a hash-linked audit log.

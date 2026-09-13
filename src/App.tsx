@@ -126,7 +126,8 @@ type State = {
           | "paid"
           | "failed"
           | "budget-exhausted"
-          | "duplicate-blocked";
+          | "duplicate-blocked"
+          | "circuit-open";
         subgraphId?: string;
         queryHash?: string;
         dailyBudgetUnits?: string;
@@ -972,7 +973,7 @@ export default function App() {
                                   </small>
                                   {mission.result.x402.subgraphId && (
                                     <small className="snapshot-note mono">
-                                      Published Subgraph: {mission.result.x402.subgraphId}
+                                      Paid Subgraph: {mission.result.x402.subgraphId}
                                       {mission.result.x402.blockNumber !== undefined
                                         ? ` · block ${mission.result.x402.blockNumber.toLocaleString("en-US")}`
                                         : ""}

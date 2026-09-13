@@ -26,10 +26,10 @@ describe("x402 Graph payment guard", () => {
       X402_GRAPH_SUBGRAPH_ID,
     );
     expect(X402_GRAPH_SUBGRAPH_ID).toBe(
-      "9M3Rm1qzEFgwyVUbAETPFdmJzEgvA6Ey1KPNt11zDr2t",
+      "69kQZiehpuHGMjYwzV5qZQUn75nZRH1ewn5nM4WzoZEv",
     );
-    expect(X402_GRAPH_QUERY).toContain("usdcactivity");
-    expect(X402_GRAPH_QUERY).toContain("transfers(");
+    expect(X402_GRAPH_QUERY).toContain("shinkaiIdentities");
+    expect(X402_GRAPH_QUERY).toContain("delegations(");
   });
   it("does not attempt payment before the reward wallet is funded", async () => {
     const fetcher = vi.fn(async () =>
@@ -109,6 +109,29 @@ describe("x402 Graph payment guard", () => {
       store,
     );
     expect(await client.query(missionId)).toEqual({ ...result, reused: true });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("opens a circuit after a paid-resource failure", async () => {
+    const store = new Store(":memory:");
+    store.put("x402-payment", mission("8"), {
+      missionId: mission("8"),
+      day: "2026-09-13",
+      status: "failed",
+      createdAt: "2026-09-13T12:00:00.000Z",
+      subgraphId: X402_GRAPH_SUBGRAPH_ID,
+      reason: "X402_QUERY_FAILED",
+    });
+    const fetcher = vi.fn() as unknown as typeof fetch;
+    const client = new X402GraphPayments(
+      provider(true),
+      Wallet.createRandom().address,
+      fetcher,
+      store,
+      () => new Date("2026-09-13T12:05:00.000Z"),
+    );
+    const result = await client.query(mission("9"));
+    expect(result.status).toBe("circuit-open");
     expect(fetcher).not.toHaveBeenCalled();
   });
 

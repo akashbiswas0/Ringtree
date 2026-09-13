@@ -22,7 +22,7 @@ The broker rejects incomplete MCP sequences. The agent cannot substitute another
 - Query endpoint: `https://api.studio.thegraph.com/query/95022/ledger-agent/v0.0.3`
 - Studio version: `v0.0.3`
 - Deployment: `QmcUD1krkpDUd7a7vhG3sr4LiFt5Ze3aTc9CP1i6ExN435`
-- Published testnet Subgraph ID: `9M3Rm1qzEFgwyVUbAETPFdmJzEgvA6Ey1KPNt11zDr2t`
+- Published RingTree testnet Subgraph ID: `9M3Rm1qzEFgwyVUbAETPFdmJzEgvA6Ey1KPNt11zDr2t`
 - Network indexed: Base Sepolia
 - Contract: Circle testnet USDC `0x036CbD53842c5426634e7929541eC2318f3dCF7e`
 - Observation start: block `46600000`
@@ -34,17 +34,17 @@ Studio `v0.0.3` is deployed, synchronized, and pinned by the broker for the enha
 
 ## x402
 
-Before the AI analysis, the local broker pays The Graph's testnet x402 gateway to query the published RingTree Subgraph's real USDC activity and recent transfers. The payer private key is encrypted under the `ringtree-agent-payment` Key Ring name.
+Before the AI analysis, the local broker pays The Graph's testnet x402 gateway to query real Shinkai identity and delegation data from allocated Subgraph `69kQ…ZoZEv`. The payer private key is encrypted under the `ringtree-agent-payment` Key Ring name. RingTree's own published testnet Subgraph currently has no signal or Indexer allocation, so it remains a Studio data source rather than a paid gateway target.
 
 Controls are fixed in code:
 
 - network: Base Sepolia (`eip155:84532`);
 - asset: official Base Sepolia USDC;
-- query: `_meta`, `USDCActivity`, and recent `Transfer` entities from the published RingTree Subgraph;
+- query: `_meta`, `ShinkaiIdentity`, and `Delegation` entities from the allocated paid Subgraph;
 - maximum payment: `0.02 USDC`; and
 - daily payment ceiling: `0.10 USDC`;
 - one durable payment record per mission; and
-- endpoint: The Graph testnet x402 URL for RingTree Subgraph ID `9M3…Dr2t`.
+- endpoint: The Graph testnet x402 URL for allocated Subgraph ID `69kQ…ZoZEv`.
 
 Mission output records the exact Subgraph ID, query hash, daily spend, paid amount, and verified settlement transaction. A mission cannot automatically pay twice; an uncertain prior attempt fails closed.
 

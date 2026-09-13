@@ -18,24 +18,24 @@ import {
 import { digest } from "../shared/protocol";
 
 export const X402_GRAPH_SUBGRAPH_ID =
-  "9M3Rm1qzEFgwyVUbAETPFdmJzEgvA6Ey1KPNt11zDr2t";
+  "69kQZiehpuHGMjYwzV5qZQUn75nZRH1ewn5nM4WzoZEv";
 export const X402_GRAPH_ENDPOINT =
   `https://gateway.testnet.thegraph.com/api/x402/subgraphs/id/${X402_GRAPH_SUBGRAPH_ID}`;
 export const X402_GRAPH_QUERY = `{
   _meta { block { number timestamp } hasIndexingErrors }
-  usdcactivity(id: "global") {
-    totalTransferCount
-    totalVolume
-    lastBlock
-    lastTimestamp
+  shinkaiIdentities(first: 5, orderBy: updatedAt, orderDirection: desc) {
+    id
+    identityRaw
+    routing
+    stakedTokens
+    delegatedTokens
+    createdAt
+    updatedAt
   }
-  transfers(first: 5, orderBy: blockNumber, orderDirection: desc) {
-    from
-    to
+  delegations(first: 5, orderBy: amount, orderDirection: desc) {
+    id
+    delegatee
     amount
-    blockNumber
-    blockTimestamp
-    transactionHash
   }
 }`;
 
@@ -46,7 +46,8 @@ export type X402QueryResult = {
     | "paid"
     | "failed"
     | "budget-exhausted"
-    | "duplicate-blocked";
+    | "duplicate-blocked"
+    | "circuit-open";
   endpoint: string;
   subgraphId: string;
   queryHash: string;
@@ -70,6 +71,9 @@ type StoredPayment = {
   createdAt: string;
   paidAmountUnits?: string;
   result?: X402QueryResult;
+  subgraphId?: string;
+  queryHash?: string;
+  reason?: string;
 };
 
 const baseResult = (): Pick<
@@ -213,6 +217,21 @@ export class X402GraphPayments {
         reason: "A prior payment attempt exists for this mission.",
       };
 
+    const recentFailure = this.payments().find(
+      (payment) =>
+        payment.status === "failed" &&
+        payment.subgraphId === X402_GRAPH_SUBGRAPH_ID &&
+        this.clock().getTime() - new Date(payment.createdAt).getTime() <
+          10 * 60 * 1000,
+    );
+    if (recentFailure)
+      return {
+        status: "circuit-open",
+        ...common,
+        reason:
+          "Paid Graph access is paused for 10 minutes after a failed settlement.",
+      };
+
     const createdAt = this.clock().toISOString();
     const day = createdAt.slice(0, 10);
     const preliminarySpent = this.spent(day);
@@ -253,6 +272,8 @@ export class X402GraphPayments {
           day,
           status: "inflight",
           createdAt,
+          subgraphId: X402_GRAPH_SUBGRAPH_ID,
+          queryHash: common.queryHash,
         } satisfies StoredPayment);
         return { kind: "reserved" as const, spent: currentSpent };
       });
@@ -324,7 +345,8 @@ export class X402GraphPayments {
               block?: { number?: number; timestamp?: number };
               hasIndexingErrors?: boolean;
             };
-            usdcactivity?: { totalTransferCount?: string; totalVolume?: string };
+            shinkaiIdentities?: unknown[];
+            delegations?: unknown[];
           };
           errors?: unknown[];
         };
@@ -333,8 +355,8 @@ export class X402GraphPayments {
           result.data?._meta?.hasIndexingErrors ||
           typeof result.data?._meta?.block?.number !== "number" ||
           typeof result.data._meta.block.timestamp !== "number" ||
-          !result.data?.usdcactivity?.totalTransferCount ||
-          !result.data.usdcactivity.totalVolume
+          !Array.isArray(result.data?.shinkaiIdentities) ||
+          !Array.isArray(result.data.delegations)
         )
           throw new Error("X402_QUERY_INVALID");
         const freshnessSeconds = Math.abs(
@@ -369,6 +391,8 @@ export class X402GraphPayments {
         createdAt,
         paidAmountUnits: paid.settlement.amount,
         result,
+        subgraphId: X402_GRAPH_SUBGRAPH_ID,
+        queryHash: common.queryHash,
       } satisfies StoredPayment);
       this.store?.event("X402_PAID", {
         missionId,
@@ -378,19 +402,26 @@ export class X402GraphPayments {
         queryHash: common.queryHash,
       });
       return result;
-    } catch {
+    } catch (error) {
+      const reason =
+        error instanceof Error && /^[A-Z0-9_]+$/.test(error.message)
+          ? error.message
+          : "X402_REQUEST_FAILED";
       this.store?.put("x402-payment", missionId, {
         missionId,
         day,
         status: "failed",
         createdAt,
+        subgraphId: X402_GRAPH_SUBGRAPH_ID,
+        queryHash: common.queryHash,
+        reason,
       } satisfies StoredPayment);
       return {
         status: "failed",
         ...common,
         dailySpentUnits: spent.toString(),
         balanceUnits: balance.toString(),
-        reason: "The paid Graph query or settlement verification failed.",
+        reason,
       };
     }
   }
