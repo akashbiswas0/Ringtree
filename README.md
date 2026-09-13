@@ -1,5 +1,7 @@
 # RingTree
 
+Open-source under the [MIT License](LICENSE), copyright 2026 Arcset.
+
 RingTree is a single-owner, Ledger-rooted control plane for agents running on an AWS VPS. The trusted broker stays on the owner's computer, where the official `wallet-cli ring` encrypts and decrypts the OpenAI key, The Graph key, and the Graph Agent payment key. AWS agents receive signed, scoped capabilities—not credentials.
 
 ## What is implemented
