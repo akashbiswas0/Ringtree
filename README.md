@@ -55,12 +55,12 @@ flowchart TB
     subgraph services["External services"]
         direction LR
         openai["OpenAI"]
-        graph["The Graph<br/>Subgraph · MCP · x402"]
+        graphService["The Graph<br/>Subgraph · MCP · x402"]
         base["Base Sepolia<br/>USDC"]
     end
 
     broker <-->|"Model requests"| openai
-    broker <-->|"Live queries with<br/>durable spend caps"| graph
+    broker <-->|"Live queries with<br/>durable spend caps"| graphService
     broker -->|"Broadcasts Ledger-approved<br/>0.01 USDC rewards"| base
 ```
 
