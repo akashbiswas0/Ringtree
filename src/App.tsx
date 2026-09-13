@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { hexlify, randomBytes, Transaction } from "ethers";
 import { LedgerController, deviceError } from "./ledger";
+import { OWNER_APPROVAL_VERSION } from "../shared/owner-approval";
 import {
   formatCount,
   formatPercentChange,
@@ -239,8 +240,10 @@ export default function App() {
     return controller.current;
   }
   function owner() {
-    if (state?.ownerApprovalVersion !== 2)
-      throw new Error("Restart the broker with npm run setup -- serve to load readable owner approvals, then refresh this page.");
+    if (state?.ownerApprovalVersion !== OWNER_APPROVAL_VERSION)
+      throw new Error(
+        `Broker/UI approval version mismatch. Restart the broker with npm run setup -- serve, then refresh this page. Expected v${OWNER_APPROVAL_VERSION}; broker reported v${state?.ownerApprovalVersion ?? "unknown"}.`,
+      );
     if (!address) throw new Error("Connect Ledger Flex first.");
     if (!state?.configured || !state.salt)
       throw new Error(

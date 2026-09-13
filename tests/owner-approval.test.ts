@@ -8,10 +8,10 @@ const id = () => hexlify(randomBytes(32));
 const wallet = Wallet.createRandom();
 const salt = id();
 const host = { hostId: Wallet.createRandom().address, label: "Research host", nonce: id(), expiresAt: 1900000000, action: "enroll" };
-describe("readable owner approval v2", () => {
+describe("readable owner approval v3", () => {
   it("shows the complete permission, instance, nonce and expiry with accurate host lifetime", () => {
     const text = ownerApprovalText(domain(salt), hostTypes, host);
-    expect(text).toContain("RingTree owner approval v2");
+    expect(text).toContain("RingTree owner approval v3");
     expect(text).toContain(host.hostId);
     expect(text).toContain(host.label);
     expect(text).toContain(host.nonce);

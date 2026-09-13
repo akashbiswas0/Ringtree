@@ -24,6 +24,7 @@ import {
 } from "../shared/protocol";
 import { inputSchemas, type ToolProvider } from "./tools";
 import type { SecretProvider } from "./secrets";
+import { OWNER_APPROVAL_VERSION } from "../shared/owner-approval";
 
 const id = () => hexlify(randomBytes(32));
 type Proposal = {
@@ -184,7 +185,7 @@ export function createApp(
   app.get("/api/state", (_req, res) =>
     res.json({
       configured: !!config,
-      ownerApprovalVersion: 2,
+      ownerApprovalVersion: OWNER_APPROVAL_VERSION,
       owner: config?.owner,
       salt: config?.salt,
       model: config?.model,
@@ -234,8 +235,8 @@ export function createApp(
   app.get("/api/protocol", (_req, res) =>
     res.json({
       domain: config ? domain(config.salt) : null,
-      ownerApprovalVersion: 2,
-      ownerSignatureScheme: "eip191-ringtree-text-v2",
+      ownerApprovalVersion: OWNER_APPROVAL_VERSION,
+      ownerSignatureScheme: `eip191-ringtree-text-v${OWNER_APPROVAL_VERSION}`,
       agentSignatureScheme: "eip712",
       grantTypes,
       hostTypes,

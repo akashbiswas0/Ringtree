@@ -5,6 +5,8 @@ import {
   X402_MAX_PAYMENT_LABEL,
 } from "./payment";
 
+export const OWNER_APPROVAL_VERSION = 3;
+
 const schemas = { ...hostTypes, ...grantTypes, ...decisionTypes, ...revokeTypes };
 const purposes: Record<string, string> = {
   HostEnrollment: "Change agent host admission. Enrollment stays active until revoked. A separate grant is required to use tools.",
@@ -41,7 +43,7 @@ export function ownerApprovalText(
   if (typeof approvalDomain.salt !== "string" || !/^0x[0-9a-fA-F]{64}$/.test(approvalDomain.salt) || canonical(approvalDomain) !== canonical(domain(approvalDomain.salt))) throw Error("INVALID_APPROVAL_DOMAIN");
   if (Object.keys(message).length !== fields.length || fields.some(f => !(f.name in message))) throw Error("INVALID_APPROVAL_FIELDS");
   if (kind === "AgentGrant" && message.parentId !== ROOT) throw Error("OWNER_APPROVAL_REQUIRES_ROOT");
-  const lines = ["RingTree owner approval v2", "Network: Base Sepolia (84532)", `Broker instance: ${approvalDomain.salt}`, `Permission: ${kind}`, purposes[kind]];
+  const lines = [`RingTree owner approval v${OWNER_APPROVAL_VERSION}`, "Network: Base Sepolia (84532)", `Broker instance: ${approvalDomain.salt}`, `Permission: ${kind}`, purposes[kind]];
   for (const field of fields) {
     if (field.name === "expiresAt") {
       const expiry = message.expiresAt;
