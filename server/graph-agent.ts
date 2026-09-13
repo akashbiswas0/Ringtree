@@ -93,7 +93,7 @@ const allowedTools = [
   "execute_query_by_ipfs_hash",
 ] as const;
 const customSubgraphEndpoint =
-  "https://api.studio.thegraph.com/query/95022/ledger-agent/version/latest";
+  "https://api.studio.thegraph.com/query/95022/ledger-agent/v0.0.3";
 const customSubgraphQuery = `{
   _meta { block { number timestamp } hasIndexingErrors }
   usdcactivity(id: "global") {

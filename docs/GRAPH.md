@@ -19,7 +19,7 @@ The broker rejects incomplete MCP sequences. The agent cannot substitute another
 ## First-party Subgraph
 
 - Studio: `https://thegraph.com/studio/subgraph/ledger-agent`
-- Query endpoint: `https://api.studio.thegraph.com/query/95022/ledger-agent/version/latest`
+- Query endpoint: `https://api.studio.thegraph.com/query/95022/ledger-agent/v0.0.3`
 - Studio version: `v0.0.3`
 - Deployment: `QmcUD1krkpDUd7a7vhG3sr4LiFt5Ze3aTc9CP1i6ExN435`
 - Published testnet Subgraph ID: `9M3Rm1qzEFgwyVUbAETPFdmJzEgvA6Ey1KPNt11zDr2t`
@@ -30,7 +30,7 @@ The broker rejects incomplete MCP sequences. The agent cannot substitute another
 
 Hourly and daily snapshots record transfer count, volume, maximum transfer, transfers of at least 10,000 USDC, and whale transfers of at least 100,000 USDC. The broker calculates current and previous 24-hour windows using integer arithmetic. The aggregates describe this observation window, not lifetime USDC activity.
 
-Studio `v0.0.3` is deployed, synchronized, and ready to republish to the testnet Subgraph ID. The broker rejects first-party data more than 15 minutes behind wall-clock time, so a newly deployed version cannot silently produce a partial report while catching up.
+Studio `v0.0.3` is deployed, synchronized, and pinned by the broker for the enhanced hourly/day analysis. The existing testnet Subgraph ID remains the x402 data source using its compatible `USDCActivity` and `Transfer` fields. Arbitrum One mainnet publication is not required for the Graph AI track. The broker also rejects first-party data more than 15 minutes behind wall-clock time.
 
 ## x402
 
@@ -63,7 +63,7 @@ npm run graph:deploy
 
 The Graph deploy key and runtime Gateway API key are different credentials and must not be committed.
 
-Publish synchronized releases from the `ledger-agent` Subgraph Studio page. Select `v0.0.3` and update existing Subgraph ID `9M3…Dr2t`; do not use the generic CLI publication form, which would create a duplicate unless it is given the existing ID and an API key in its URL.
+Do not publish this test project to Arbitrum One mainnet merely to update the Studio version. Subgraph Studio provides the enhanced live dataset, while the already-published Graph testnet Subgraph provides the x402 path.
 
 ## Limits
 
